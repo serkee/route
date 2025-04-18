@@ -1,57 +1,35 @@
 <template>
-  <router-view v-if="!isAuthenticated" />
-  <div v-else>
-    <nav>
-      <router-link to="/home">홈</router-link> |
-      <router-link to="/map">지도</router-link> |
-      <router-link to="/user">사용자</router-link> |
-      <router-link to="/board">게시판</router-link>
-    </nav>
-    <router-view />
+  <div id="app">
+    <router-view v-if="!userStore.isLoggedIn" />
+    <div v-else class="authenticated-layout">
+        <router-view />
+      <nav>
+        <router-link to="/home">홈</router-link>
+        <router-link to="/map">지도</router-link>
+        <router-link to="/user">사용자</router-link>
+        <router-link to="/board">게시판</router-link>
+      </nav>
+    </div>
   </div>
 </template>
 
-<script>
-import { ref, onMounted } from 'vue';
+<script setup>
+import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useUserStore } from '@/store/user'; // 스토어 경로에 맞춰 수정
 
-export default {
-  setup() {
-    const isAuthenticated = ref(false); // 로그인 상태를 관리하는 ref
-    const router = useRouter();
+const userStore = useUserStore();
+const router = useRouter();
 
-    // 앱이 마운트될 때 로컬 스토리지 또는 다른 방법으로 로그인 상태를 확인할 수 있습니다.
-    onMounted(() => {
-      // 예시: 로컬 스토리지에서 토큰을 확인하여 로그인 상태 설정
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        isAuthenticated.value = true;
-        router.push('/home'); // 로그인되어 있다면 홈 화면으로 이동
-      } else {
-        router.push('/'); // 로그인되어 있지 않다면 스플래시 화면으로 이동 (경로 '/' 가정)
-      }
-    });
-
-    // 실제 앱에서는 로그인/회원가입 컴포넌트에서 로그인 성공 시 isAuthenticated를 true로 변경해야 합니다.
-    const loginSuccess = () => {
-      isAuthenticated.value = true;
-      localStorage.setItem('authToken', 'example-token'); // 예시: 토큰 저장
-      router.push('/home');
-    };
-
-    const logout = () => {
-      isAuthenticated.value = false;
-      localStorage.removeItem('authToken'); // 예시: 토큰 제거
-      router.push('/');
-    };
-
-    return {
-      isAuthenticated,
-      loginSuccess, // 예시로 제공하는 로그인 성공 함수 (실제 구현에 따라 다름)
-      logout,       // 예시로 제공하는 로그아웃 함수 (실제 구현에 따라 다름)
-    };
-  },
-};
+onMounted(() => {
+  userStore.checkAuthOnLoad();
+  console.log('App.vue - onMounted - userStore.isLoggedIn:', userStore.isLoggedIn);
+  if (userStore.isLoggedIn && router.currentRoute.value.path === '/') {
+    router.push('/home');
+  } else if (!userStore.isLoggedIn && router.currentRoute.value.path !== '/') {
+    router.push('/');
+  }
+});
 </script>
 
 <style scoped>
@@ -61,19 +39,65 @@ export default {
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
   color: #2c3e50;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.authenticated-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.container {
+  flex-grow: 1;
+  overflow-y: auto;
 }
 
 nav {
-  padding: 30px;
+  border-top: 1px solid #e1e1e1;
+  left: 0;
+  right: 0;
+  height: 70px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: white; /* 추가: 배경색 설정 */
 }
 
 nav a {
-  font-weight: bold;
-  color: #2c3e50;
+  color: #999;
   text-decoration: none;
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+}
+nav a:before{
+  content: '';
+  display: block;
+  width: 20px;
+  height: 18px;
+  background-color:#999;
+  -webkit-mask-image: url(~@/assets/images/common/ico_menu_home.svg);
+  -webkit-mask-size: cover;
+  margin: 0 auto 4px;
+}
+nav a:nth-child(2):before{
+  -webkit-mask-image: url(~@/assets/images/common/ico_menu_map.svg);
+}
+nav a:nth-child(3):before{
+  -webkit-mask-image: url(~@/assets/images/common/ico_menu_user.svg);
+}
+nav a:nth-child(4):before{
+  -webkit-mask-image: url(~@/assets/images/common/ico_menu_board.svg);
 }
 
 nav a.router-link-exact-active {
-  color: #42b983;
+  color: #005fec;
+  font-weight: bold;
+}
+nav a.router-link-exact-active:before{
+  background-color:#005fec;
 }
 </style>

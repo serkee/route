@@ -1,4 +1,5 @@
 import { createApp } from 'vue';
+import './assets/css/reset.css';
 import App from './App.vue';
 import router from './router';
 import pinia from './store'; // store/index.js에서 내보낸 pinia 인스턴스를 가져옵니다.

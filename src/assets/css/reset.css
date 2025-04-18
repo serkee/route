@@ -1,0 +1,276 @@
+/* http://meyerweb.com/eric/tools/css/reset/
+   v2.0 | 20110126
+   License: none (public domain)
+*/
+
+html,
+body,
+div,
+span,
+applet,
+object,
+iframe,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote,
+pre,
+a,
+abbr,
+acronym,
+address,
+big,
+cite,
+code,
+del,
+dfn,
+em,
+img,
+ins,
+kbd,
+q,
+s,
+samp,
+small,
+strike,
+strong,
+sub,
+sup,
+tt,
+var,
+b,
+u,
+i,
+center,
+dl,
+dt,
+dd,
+ol,
+ul,
+li,
+fieldset,
+form,
+label,
+legend,
+table,
+caption,
+tbody,
+tfoot,
+thead,
+tr,
+th,
+td,
+article,
+aside,
+canvas,
+details,
+embed,
+figure,
+figcaption,
+footer,
+header,
+hgroup,
+menu,
+nav,
+output,
+ruby,
+section,
+summary,
+time,
+mark,
+audio,
+video {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-size: 100%;
+	font: inherit;
+	vertical-align: baseline;
+	box-sizing: border-box;
+}
+
+/* HTML5 display-role reset for older browsers */
+article,
+aside,
+details,
+figcaption,
+figure,
+footer,
+header,
+hgroup,
+menu,
+nav,
+section {
+	display: block;
+}
+
+body {
+	line-height: 1;
+}
+
+ol,
+ul {
+	list-style: none;
+}
+
+blockquote,
+q {
+	quotes: none;
+}
+
+blockquote:before,
+blockquote:after,
+q:before,
+q:after {
+	content: '';
+	content: none;
+}
+
+table {
+	border-collapse: collapse;
+	border-spacing: 0;
+}
+
+html,
+body,
+#app,
+#app>div {
+	height: 100%;
+}
+
+
+.container {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 70px 20px 100px;
+}
+
+.header {
+	position: fixed;
+	display: flex;
+	/* align-items: center; */
+	width: 100%;
+	box-shadow: 0 3px 3px rgba(0, 0, 0, .05);
+	background-color: #fff;
+	z-index: 2;
+	height: 50px;
+	top: 0;
+}
+
+.header h1 {
+	margin: 0;
+	font-size: 1.2em;
+	font-weight: bold;
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.header__left {
+	width: 50px;
+}
+
+.header__right {
+	width: 50px;
+}
+
+.header__info{
+	display: flex;
+	align-items: center;
+	padding-left: 10px;
+	flex: 1;
+}
+.header__info-photo{
+	background: #e1e1e1;
+	width: 30px;
+	height: 30px;
+	border-radius: 100%;
+	overflow: hidden;
+	margin-right: 10px;
+	display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.profile-photo-placeholder{
+	opacity: .3;
+}
+.btn-logout{
+	width: 100%;
+	height: 100%;
+	background: url(@/assets/images/common/ico_logout.svg) no-repeat center center;
+	background-size: 19px auto;
+	border: 0;
+	font-size: 0;
+}
+
+.back-button {
+	font-size: 0px;
+	border: none;
+	background: url(@/assets/images/common/ico_back.svg) no-repeat center center;
+	background-size: 10px auto;
+	cursor: pointer;
+	height: 100%;
+	width: 100%;
+	padding: 0;
+}
+
+
+.bottom-container {
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	display: flex;
+}
+
+.bottom-container>button {
+	padding: 15px 20px;
+	font-size: 16px;
+	border: 0;
+	cursor: pointer;
+	background: rgba(250, 250, 250, 0.9);
+	/* Add some transparency for better visibility */
+	color: #4CAF50;
+	font-weight: 500;
+	flex: 1;
+}
+
+.green-button {
+	background-color: rgba(76, 175, 80, 0.9) !important;
+	color: white !important;
+}
+.form-group{
+	position: relative;
+}
+.form-group + .form-group {
+    margin-top: 30px;
+  }
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+	font-size: 13px;
+	text-align: left;
+  }
+.form-group input[type="email"],
+.form-group input[type="text"],
+.form-group input[type="password"] {
+  padding: 10px 10px 10px 0;
+  border: 0;
+  border-bottom: 1px solid #ccc;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.form-group input[type="email"]::placeholder,
+.form-group input[type="text"]::placeholder,
+.form-group input[type="password"]::placeholder{
+	color: #b4b4b4;
+}
