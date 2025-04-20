@@ -1,9 +1,99 @@
 <template>
   <div class="container">
     <AppHeader />
-    <p>로그인 후 보여지는 첫 화면입니다.</p>
+    <!-- <p>로그인 후 보여지는 첫 화면입니다.</p>
     <div class="content">
       <p>환영합니다, {{ userStore.name }}님!</p>
+    </div> -->
+    <div class="content">
+      <div class="titWrap">
+        <h2>자유게시판</h2>
+        <button>전체보기+</button>
+      </div>
+      <div class="list">
+        <ul>
+          <li>
+            <a href="javascript:void(0)">
+              <img src="@/assets/images/contents/@thumb.png" alt="">
+            </a>
+          </li>
+          <li>
+            <a href="javascript:void(0)">
+              <img src="@/assets/images/contents/@thumb.png" alt="">
+            </a>
+          </li>
+          <li>
+            <a href="javascript:void(0)">
+              <img src="@/assets/images/contents/@thumb.png" alt="">
+            </a>
+          </li>
+          <li>
+            <a href="javascript:void(0)">
+              <img src="@/assets/images/contents/@thumb.png" alt="">
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="titWrap">
+        <h2>루트게시판</h2>
+        <button>전체보기+</button>
+      </div>
+      <div class="list">
+        <ul>
+          <li>
+            <a href="javascript:void(0)">
+              <img src="@/assets/images/contents/@thumb.png" alt="">
+            </a>
+          </li>
+          <li>
+            <a href="javascript:void(0)">
+              <img src="@/assets/images/contents/@thumb.png" alt="">
+            </a>
+          </li>
+          <li>
+            <a href="javascript:void(0)">
+              <img src="@/assets/images/contents/@thumb.png" alt="">
+            </a>
+          </li>
+          <li>
+            <a href="javascript:void(0)">
+              <img src="@/assets/images/contents/@thumb.png" alt="">
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="titWrap">
+        <h2>중고마켓</h2>
+        <button>전체보기+</button>
+      </div>
+      <div class="list">
+        <ul>
+          <li>
+            <a href="javascript:void(0)">
+              <img src="@/assets/images/contents/@thumb.png" alt="">
+            </a>
+          </li>
+          <li>
+            <a href="javascript:void(0)">
+              <img src="@/assets/images/contents/@thumb.png" alt="">
+            </a>
+          </li>
+          <li>
+            <a href="javascript:void(0)">
+              <img src="@/assets/images/contents/@thumb.png" alt="">
+            </a>
+          </li>
+          <li>
+            <a href="javascript:void(0)">
+              <img src="@/assets/images/contents/@thumb.png" alt="">
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <button class="btn-feed">+ 피드쓰기</button>
     </div>
   </div>
 </template>
@@ -35,17 +125,17 @@ onMounted(() => {
 // const loadHomeData = async () => { ... };
 </script>
   
-  <style scoped>
-p {
-  color: #777;
-  margin-bottom: 20px;
-}
-
-.content {
-  width: 80%;
-  padding: 20px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  text-align: center;
-}
+<style scoped>
+.content{width: 100%;}
+  .titWrap{display: flex; justify-content: space-between; align-items: center; height: 40px; margin-bottom: 5px;}
+  .titWrap > h2{font-size: 20px; font-weight: bold; }
+  .titWrap > button{border:1px solid #e1e1e1; background: transparent; height: 25px; line-height: 23px; border-radius: 13px; color: #999; padding: 0 10px;}
+  .list + .titWrap{margin-top: 40px;}
+  .list{overflow-x: auto; overflow-y: hidden;}
+  .list > ul{text-align: left; word-break: keep-all; white-space: nowrap;}
+  .list > ul > li{display: inline-block;}
+  .list > ul > li + li{margin-left: 10px;}
+  .list > ul > li > a{}
+  .list > ul > li > a > img{width: 200px;}
+  .btn-feed{position: fixed; bottom: 70px; right: 15px; height: 50px; background: rgb(19, 177, 56); border: 0;  font-size: 20px; color: #fff; padding: 0 20px; border-radius: 25px; cursor: pointer; box-shadow: 3px 3px 3px rgba(0, 0, 0, .2);}
 </style>

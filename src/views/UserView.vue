@@ -1,125 +1,84 @@
 <template>
   <div class="container">
     <AppHeader />
-
-    <div class="profile-info">
-      <h2>프로필 정보</h2>
-      <p><strong>이름:</strong> {{ user.name }}</p>
-      <p><strong>이메일:</strong> {{ user.email }}</p>
-      <button @click="editProfile">프로필 수정</button>
-    </div>
-
-    <div class="settings">
-      <h2>설정</h2>
-      <ul>
-        <li><button @click="goToNotifications">알림 설정</button></li>
-        <li><button @click="goToPrivacy">개인 정보 설정</button></li>
-      </ul>
-    </div>
-
-    <div class="logout">
-      <button @click="logoutUser">로그아웃</button>
+    <!-- <p>로그인 후 보여지는 첫 화면입니다.</p>
+    <div class="content">
+      <p>환영합니다, {{ userStore.name }}님!</p>
+    </div> -->
+    <div class="content">
+      <div class="tab">
+        <ul>
+          <li class="active"><button>전체</button></li>
+          <li><button>자유게시판</button></li>
+          <li><button>루트</button></li>
+          <li><button>중고마켓</button></li>
+        </ul>
+      </div>
+      <div class="list">
+        <ul>
+          <li>
+            <a href="javascript:void(0)">
+              <img src="@/assets/images/contents/@thumb.png" alt="">
+            </a>
+          </li>
+          <li>
+            <a href="javascript:void(0)">
+              <img src="@/assets/images/contents/@thumb.png" alt="">
+            </a>
+          </li>
+          <li>
+            <a href="javascript:void(0)">
+              <img src="@/assets/images/contents/@thumb.png" alt="">
+            </a>
+          </li>
+          <li>
+            <a href="javascript:void(0)">
+              <img src="@/assets/images/contents/@thumb.png" alt="">
+            </a>
+          </li>
+        </ul>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { useRouter } from 'vue-router';
-import { ref, onMounted } from 'vue';
-import { useUserStore } from '@/store/user'; // 스토어 경로에 맞춰 수정
+// import { useRouter } from 'vue-router'; // 사용하지 않으므로 제거
+import { useUserStore } from "@/store/user"; // 스토어 경로에 맞춰 수정
+import { onMounted } from "vue";
 import AppHeader from "@/components/AppHeader.vue"; // AppHeader 컴포넌트 import (경로 확인)
 
-const router = useRouter();
+// const router = useRouter(); // 사용하지 않으므로 제거
 const userStore = useUserStore();
-const user = ref({
-  name: '',
-  email: '',
-  // 추가적인 사용자 정보
-});
 
+// 컴포넌트 마운트 시 실행될 로직 (필요하다면)
 onMounted(() => {
-  // 실제 앱에서는 API 호출 또는 스토어에서 사용자 정보를 가져와야 합니다.
-  // 예시:
-  // fetch('/api/user/profile')
-  //   .then(response => response.json())
-  //   .then(data => {
-  //     user.value = data;
-  //   });
-
-  // 임시 사용자 정보
-  user.value = { name: '홍길동', email: 'hong@example.com' };
+  console.log(
+    "HomeView mounted. User:",
+    userStore.name,
+    userStore.email,
+    userStore.profileImageUrl
+  );
+  // 예: 로그인 후 특정 데이터를 로딩해야 하는 경우
+  // loadHomeData();
 });
 
-const editProfile = () => {
-  // 프로필 수정 페이지로 이동하는 로직 (아직 경로가 정의되지 않았을 수 있습니다.)
-  router.push('/user/edit');
-};
+// 로그아웃 함수는 이제 AppHeader.vue에 있습니다.
 
-const goToNotifications = () => {
-  // 알림 설정 페이지로 이동하는 로직
-  router.push('/user/notifications');
-};
-
-const goToPrivacy = () => {
-  // 개인 정보 설정 페이지로 이동하는 로직
-  router.push('/user/privacy');
-};
-
-const logoutUser = () => {
-  // 실제 로그아웃 로직 (API 호출, 토큰 제거 등)을 구현해야 합니다.
-  localStorage.removeItem('authToken'); // 예시: 로컬 스토리지에서 토큰 제거
-  userStore.clearUser(); // Pinia 스토어의 clearUser 액션 호출 (로그인 상태 업데이트)
-  router.push('/'); // 스플래시 화면으로 이동
-};
+// 예시: 홈 화면 데이터 로딩 함수 (필요하다면 구현)
+// const loadHomeData = async () => { ... };
 </script>
-
+  
 <style scoped>
-
-.profile-info,
-.settings,
-.logout {
-  width: 100%;
-  margin-bottom: 20px;
-  padding: 15px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  text-align: left;
-}
-
-h2 {
-  margin-top: 0;
-  margin-bottom: 10px;
-}
-
-.settings ul {
-  list-style: none;
-  padding: 0;
-}
-
-.settings li {
-  margin-bottom: 8px;
-}
-
-button {
-  padding: 10px 15px;
-  font-size: 16px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  cursor: pointer;
-  background-color: #f8f8f8;
-}
-
-button:hover {
-  background-color: #eee;
-}
-
-.logout button {
-  background-color: #dc3545;
-  color: white;
-  border: none;
-}
-
-.logout button:hover {
-  background-color: #c82333;
-}
+.content{width: 100%; position: relative; padding-top: 70px;}
+  .tab{position: fixed; left:0; right:0; top: 50px; z-index: 2;}
+  .tab > ul{display: flex; background: #fff; padding-top: 30px;}
+  .tab > ul > li{flex: 1;}
+  .tab > ul > li > button{height: 40px; font-size: 18px; border:0; border-bottom: 1px solid rgb(223, 223, 223); background: transparent; width: 100%; padding: 0; cursor: pointer;}
+  .tab > ul > li.active > button{border-bottom: 2px solid rgb(19, 177, 56); font-weight: bold; color: rgb(19, 177, 56);}
+  .list{}
+  .list > ul{display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;}
+  .list > ul > li{}
+  .list > ul > li > a{}
+  .list > ul > li > a > img{width: 100%;}
 </style>
