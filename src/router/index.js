@@ -7,6 +7,8 @@ import SplashView from '../views/SplashView.vue';
 import MapView from '../views/MapView.vue'; // MapView import
 import UserView from '../views/UserView.vue'; // UserView import
 import BoardView from '../views/BoardView.vue'; // BoardView import
+import BoardWriteView from '../views/BoardWriteView.vue';
+import BoardDetailView from '../views/BoardDetailView.vue';
 
 // Pinia 스토어 사용을 위해 import
 import { useUserStore } from '@/store/user';
@@ -54,7 +56,18 @@ const routes = [
     component: BoardView,
     meta: { requiresAuth: true } // 인증 필요
   },
-  // 다른 라우트들...
+  {
+    path: '/board/write', // 게시글 작성 페이지 라우트 정의
+    name: 'board-write',
+    component: BoardWriteView,
+    meta: { requiresAuth: true } // 작성 페이지도 로그인이 필요하다고 가정
+  },
+  {
+    path: '/board/:id', // 게시글 상세 페이지 라우트 정의, 동적 파라미터 ':id' 사용
+    name: 'board-detail',
+    component: BoardDetailView,
+    meta: { requiresAuth: true } // 상세 페이지도 로그인이 필요하다고 가정
+  }
 ];
 
 const router = createRouter({
