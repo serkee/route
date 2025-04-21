@@ -145,18 +145,18 @@ const goToPostDetail = (postId) => {
 
 <style scoped>
 /* 기존 스타일 유지 */
-.container {
+/* .container {
   width: 100%;
-  max-width: 500px; /* Example max-width */
+  max-width: 500px;
   margin: 0 auto;
-  padding: 0 20px; /* Add padding */
+  padding: 0 20px;
   box-sizing: border-box;
-}
+} */
 
 .content {
   width: 100%;
   position: relative;
-  padding-top: 120px; /* 헤더 + 탭 높이에 맞춰 조정 */
+  padding-top: 50px; /* 헤더 + 탭 높이에 맞춰 조정 */
 }
 .tab {
   position: fixed;
