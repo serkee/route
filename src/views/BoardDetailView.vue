@@ -12,7 +12,7 @@
       <h2>{{ post.title }}</h2>
       <div class="post-meta">
         <span class="post-img">
-          <!-- <img src="@/assets/images/contents/@thumb.png" alt="" /> -->
+          <img src="@/assets/images/contents/@thumb.png" alt="" />
         </span>
         <strong class="post-author">{{ post.author }}</strong>
         <span class="post-date"
@@ -334,6 +334,13 @@ onMounted(() => {
     bottom;
   background-size: 70% auto;
   opacity: 0.15;
+}
+.post-img > img{
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 .post-author {
   font-weight: 500;
