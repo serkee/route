@@ -1,7 +1,13 @@
 // src/services/userService.js
-import { auth, storage, storageRef, uploadBytes, getDownloadURL } from "@/firebase";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-// Firestore에 추가 정보 저장 시 import { db, doc, setDoc } from "@/firebase"; 필요
+// Firebase 서비스 인스턴스 (auth, db)는 @/firebase에서 import
+import { auth, storage } from '@/firebase';
+
+// Firebase Auth 모듈에서 필요한 함수들을 직접 import (signInWithEmailAndPassword 등)
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'; // createUserWithEmailAndPassword는 사용 중일 것으로 예상, updateProfile 추가
+
+// *** Firebase Storage 모듈에서 필요한 함수들을 직접 import ***
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'; // deleteObject 사용하지 않으면 제거
+
 
 // 아바타 이미지를 Firebase Storage에 업로드하는 함수
 const uploadAvatar = async (userId, file) => {

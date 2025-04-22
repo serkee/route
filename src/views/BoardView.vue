@@ -44,6 +44,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from "vue"; // onMounted, onUnmounted import
 import { useRouter } from "vue-router";
+import AppHeader from "@/components/AppHeader.vue"; // AppHeader 컴포넌트 import (경로 확인)
 
 // Firebase Firestore SDK에서 필요한 함수들을 import 합니다.
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';

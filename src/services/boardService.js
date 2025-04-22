@@ -1,148 +1,116 @@
-// src/services/boardService.js
-import { db, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp } from "@/firebase";
-import { auth } from "@/firebase"; // 현재 사용자 정보를 얻기 위해 auth 필요
+// src/services/boardService.js - 게시판 관련 Firebase Firestore 상호작용 서비스 파일
 
-const postsCollection = collection(db, "posts");
+// Firebase 서비스 인스턴스인 db를 import 합니다.
+// db 인스턴스가 @/firebase에서 내보내졌다면 @/firebase에서 import합니다.
+// 만약 main.js에서 내보내졌다면 @/main.js에서 import해야 합니다.
+// 우리 논의 구조상 @/firebase에서 내보내고 main.js가 @/firebase를 import하는 방식입니다.
+import { db } from '@/firebase'; // Firebase 서비스 인스턴스 import
 
-// 모든 게시글 조회 (간단 예시, 실제는 페이지네이션 필요)
+// Firebase Firestore 모듈에서 필요한 개별 함수들을 직접 import 합니다.
+// boardService에서 사용될 collection, getDocs, query, orderBy 등 모든 Firestore 함수들을 여기에 나열합니다.
+import {
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  doc,
+  getDoc,
+  addDoc,
+  // updateDoc, // <-- 이 부분을 제거합니다.
+  deleteDoc,
+  serverTimestamp
+  // 필요한 다른 Firestore 함수들도 여기에 추가
+} from 'firebase/firestore';
+
+
+// 게시글 목록을 가져오는 함수
 const getPosts = async () => {
-  const q = query(postsCollection, orderBy("createdAt", "desc")); // 최신순 정렬
-  const querySnapshot = await getDocs(q);
-  const posts = [];
-  querySnapshot.forEach((doc) => {
-    posts.push({ id: doc.id, ...doc.data() });
-  });
-  return posts;
+  try {
+    // db 인스턴스와 import된 collection, query, orderBy, getDocs 함수를 사용합니다.
+    const postsCollectionRef = collection(db, 'posts'); // 'posts' 컬렉션 참조
+    const q = query(postsCollectionRef, orderBy('createdAt', 'desc')); // 최신순 정렬 쿼리
+    const querySnapshot = await getDocs(q); // 쿼리 실행하여 문서 스냅샷 가져오기
+
+    const posts = [];
+    querySnapshot.forEach((doc) => {
+      posts.push({ id: doc.id, ...doc.data() }); // 문서 ID와 데이터 추출
+    });
+
+    return posts; // 게시글 배열 반환
+  } catch (error) {
+    console.error("게시글 목록 가져오기 오류:", error);
+    throw error; // 오류를 다시 throw하여 호출한 곳에서 처리하도록 합니다.
+  }
 };
 
-// 특정 게시글 상세 조회
-const getPostDetail = async (postId) => {
-  const postDocRef = doc(db, "posts", postId);
-  const postDocSnap = await getDoc(postDocRef);
+// 특정 게시글 상세 정보를 가져오는 함수 (getPostDetail 대신 이 이름 사용 권장)
+const getPostById = async (postId) => {
+    try {
+        // db 인스턴스와 import된 doc, getDoc 함수를 사용합니다.
+        const postDocRef = doc(db, 'posts', postId); // 특정 문서 참조
+        const postDocSnap = await getDoc(postDocRef); // 문서 내용 가져오기
 
-  if (postDocSnap.exists()) {
-    const postData = { id: postDocSnap.id, ...postDocSnap.data() };
-
-    // 조회수 증가 (간단 예시, 실제는 트랜잭션 사용 권장)
-    // updateDoc(postDocRef, { views: (postData.views || 0) + 1 }); // 이 부분은 필요에 따라 추가
-
-    // 해당 게시글의 댓글들 조회 (comments 서브컬렉션)
-    const commentsCollectionRef = collection(postDocRef, "comments");
-    const commentsQuery = query(commentsCollectionRef, orderBy("createdAt", "asc")); // 댓글 작성 시간순 정렬
-    const commentsSnapshot = await getDocs(commentsQuery);
-
-    const comments = [];
-    const replyMap = {}; // 답글 처리를 위한 맵
-
-    commentsSnapshot.forEach((commentDoc) => {
-      const commentData = { id: commentDoc.id, ...commentDoc.data() };
-      commentData.replies = []; // 각 댓글에 답글 배열 추가
-
-      if (commentData.parentId) {
-        // 답글인 경우 부모 댓글의 replies 배열에 추가
-        if (replyMap[commentData.parentId]) {
-          replyMap[commentData.parentId].push(commentData);
+        if (postDocSnap.exists()) {
+            return { id: postDocSnap.id, ...postDocSnap.data() }; // 문서가 존재하면 ID와 데이터 반환
+        } else {
+            console.log("해당 게시글이 존재하지 않습니다.");
+            return null; // 문서가 없으면 null 반환
         }
-      } else {
-        // 원댓글인 경우 comments 배열에 추가
-        comments.push(commentData);
-        replyMap[commentData.id] = commentData.replies; // 이 댓글의 답글들이 추가될 배열을 맵에 저장
-      }
-    });
-
-    // comments 배열은 이제 원댓글만 가지고 있고, 각 원댓글의 replies 배열에 해당 답글들이 들어있습니다.
-    return { post: postData, comments: comments };
-
-  } else {
-    console.log("게시글이 존재하지 않습니다.");
-    return null;
-  }
-};
-
-// 새 게시글 작성
-const addPost = async (postData) => {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    throw new Error("로그인이 필요합니다."); // 로그인하지 않은 경우 에러 발생
-  }
-
-  const newPost = {
-    ...postData,
-    authorId: currentUser.uid, // 작성자 ID
-    authorName: currentUser.displayName || currentUser.email, // 작성자 이름 (프로필 설정에 따라 변경)
-    createdAt: serverTimestamp(), // 서버 시간 스탬프 (시간 순서 정렬에 유리)
-    updatedAt: serverTimestamp(),
-    views: 0,
-  };
-
-  const docRef = await addDoc(postsCollection, newPost);
-  console.log("게시글 작성 완료, ID:", docRef.id);
-  return docRef.id; // 새로 생성된 게시글 ID 반환
-};
-
-// 댓글/답글 작성
-const addCommentToPost = async (postId, commentText, parentId = null) => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-        throw new Error("로그인이 필요합니다.");
+    } catch (error) {
+        console.error(`게시글 ${postId} 가져오기 오류:`, error);
+        throw error;
     }
-
-    const commentsCollectionRef = collection(db, "posts", postId, "comments");
-
-    const newComment = {
-        postId: postId, // 부모 게시글 ID
-        authorId: currentUser.uid,
-        authorName: currentUser.displayName || currentUser.email,
-        text: commentText,
-        createdAt: serverTimestamp(),
-        parentId: parentId, // 답글인 경우 부모 댓글 ID
-    };
-
-    const docRef = await addDoc(commentsCollectionRef, newComment);
-    console.log("댓글/답글 작성 완료, ID:", docRef.id);
-    return { id: docRef.id, ...newComment, createdAt: new Date() }; // 임시로 클라이언트 시간 사용, 실제는 Firestore에서 받아와야 정확함
 };
 
+// 게시글에 댓글을 추가하는 함수 (로직은 귀하의 코드를 참고하여 채워 넣으세요)
+const addCommentToPost = async (postId, commentData) => {
+    try {
+        // 예시: 댓글 컬렉션 경로: posts/{postId}/comments
+        const commentsCollectionRef = collection(db, 'posts', postId, 'comments');
 
-// 게시글 수정
-const updatePost = async (postId, updatedData) => {
-    const postDocRef = doc(db, "posts", postId);
-    // TODO: 여기서 현재 사용자가 게시글 작성자인지 확인하는 로직 추가
-    // const postSnap = await getDoc(postDocRef);
-    // if (postSnap.exists() && postSnap.data().authorId !== auth.currentUser?.uid) {
-    //     throw new Error("수정 권한이 없습니다.");
-    // }
+        // 댓글 데이터에 작성자 정보, 타임스탬프 등을 추가해야 합니다.
+        const commentToAdd = {
+            ...commentData, // 전달받은 댓글 내용
+            // authorId: ..., // 작성자 UID (여기서 가져오거나 호출하는 쪽에서 전달)
+            // authorName: ..., // 작성자 이름 등 (여기서 가져오거나 호출하는 쪽에서 전달)
+            createdAt: serverTimestamp() // 서버 타임스탬프
+        };
 
-    await updateDoc(postDocRef, {
-        ...updatedData,
-        updatedAt: serverTimestamp(), // 수정 시간 업데이트
-    });
-    console.log("게시글 수정 완료, ID:", postId);
+        const docRef = await addDoc(commentsCollectionRef, commentToAdd); // 댓글 문서 추가
+        console.log(`게시글 ${postId}에 댓글 추가 완료. 댓글 ID: ${docRef.id}`);
+        return docRef.id; // 추가된 댓글 문서 ID 반환
+
+    } catch (error) {
+        console.error(`게시글 ${postId}에 댓글 추가 오류:`, error);
+        throw error;
+    }
 };
 
-// 게시글 삭제
+// 게시글을 삭제하는 함수 (로직은 귀하의 코드를 참고하여 채워 넣으세요)
 const deletePost = async (postId) => {
-    const postDocRef = doc(db, "posts", postId);
-     // TODO: 여기서 현재 사용자가 게시글 작성자인지 확인하는 로직 추가
-    // const postSnap = await getDoc(postDocRef);
-    // if (postSnap.exists() && postSnap.data().authorId !== auth.currentUser?.uid) {
-    //     throw new Error("삭제 권한이 없습니다.");
-    // }
+    try {
+        // db 인스턴스와 import된 doc, deleteDoc 함수를 사용합니다.
+        const postDocRef = doc(db, 'posts', postId); // 삭제할 문서 참조
+        await deleteDoc(postDocRef); // 문서 삭제 실행
 
-    // Firestore는 서브컬렉션을 자동으로 삭제하지 않습니다.
-    // 댓글 서브컬렉션의 모든 문서를 먼저 삭제해야 합니다.
-    const commentsCollectionRef = collection(postDocRef, "comments");
-    const commentsSnapshot = await getDocs(commentsCollectionRef);
-    const deleteCommentPromises = commentsSnapshot.docs.map(commentDoc => deleteDoc(commentDoc.ref));
+        console.log(`게시글 ${postId} 삭제 완료.`);
 
-    // 모든 댓글 삭제 완료 대기
-    await Promise.all(deleteCommentPromises);
-    console.log(`게시글 ID ${postId}의 모든 댓글 삭제 완료`);
+        // 참고: 게시글 삭제 시 해당 게시글의 모든 하위 컬렉션(예: 댓글) 문서들도 직접 삭제해야 합니다.
+        // Firestore는 문서 삭제 시 하위 컬렉션을 자동으로 삭제하지 않습니다.
+        // 댓글 삭제 로직 등을 여기에 추가해야 할 수 있습니다.
 
-    // 게시글 문서 삭제
-    await deleteDoc(postDocRef);
-    console.log("게시글 삭제 완료, ID:", postId);
+    } catch (error) {
+        console.error(`게시글 ${postId} 삭제 오류:`, error);
+        throw error;
+    }
 };
 
 
-export { getPosts, getPostDetail, addPost, addCommentToPost, updatePost, deletePost };
+// 게시글 관련 서비스 함수들을 내보냅니다.
+// BoardDetailView.vue 등의 파일에서 이 함수들을 import하여 사용합니다.
+export {
+  getPosts,
+  getPostById,      // BoardDetailView.vue에서 getPostDetail 대신 이 이름을 사용해야 합니다.
+  addCommentToPost, // BoardDetailView.vue에서 import하려던 함수
+  deletePost        // BoardDetailView.vue에서 import하려던 함수
+};

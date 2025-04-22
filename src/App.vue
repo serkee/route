@@ -1,39 +1,56 @@
 <template>
   <div id="app">
     <router-view />
+
     <nav v-if="userStore.isLoggedIn">
       <router-link to="/home">홈</router-link> |
       <router-link to="/map">지도</router-link> |
       <router-link to="/user">사용자</router-link> |
-      <router-link to="/board">게시판</router-link>
+
+      <router-link to="/board" custom v-slot="{ href, navigate, isExactActive }">
+        
+        <a
+          :href="href"
+          @click="navigate"
+          :class="{
+            'router-link-exact-active': isExactActive, /* 정확히 /board 일 때 활성화 */
+            'router-link-active': isBoardActive /* /board 또는 하위 경로일 때 활성화 (우선 적용) */
+          }"
+        >
+          게시판
+        </a>
+      </router-link>
     </nav>
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
-// useRouter는 이제 App.vue에서 직접 리디렉션하지 않으므로 필요 없을 수 있습니다.
-// import { useRouter } from 'vue-router';
+import { onMounted, computed } from 'vue'; // computed import
 import { useUserStore } from '@/store/user'; // 스토어 경로에 맞춰 수정
+import { useRoute } from 'vue-router'; // useRoute import
+
+
 // AppHeader는 HomeView 등 각 페이지에서 직접 사용하므로 App.vue에서는 import 하지 않음
 
 
 const userStore = useUserStore();
-// const router = useRouter(); // 사용하지 않는다면 제거
+const route = useRoute(); // 현재 라우트 인스턴스 가져오기
+
+// '게시판' 항목이 활성화되어야 하는지 계산하는 Computed 속성
+// 라우트 경로가 '/board'로 시작하는지 확인
+const isBoardActive = computed(() => {
+  return route.path.startsWith('/board');
+});
+
 
 onMounted(() => {
   // 앱 로딩 시 인증 상태 확인 (로컬 스토리지 등)
   userStore.checkAuthOnLoad();
-  //console.log('App.vue - onMounted - userStore.isLoggedIn:', userStore.isLoggedIn);
-  // onMounted에서의 리디렉션 로직은 네비게이션 가드로 대체됩니다.
 });
-
-// App.vue에서는 더 이상 리디렉션 함수가 필요 없습니다.
 </script>
 
 <style scoped>
 #app {
-  /* font-family: Avenir, Helvetica, Arial, sans-serif; */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
@@ -43,22 +60,6 @@ onMounted(() => {
   flex-direction: column;
 }
 
-/* 네비게이션 가드가 레이아웃을 제어하므로 authenticated-layout은 필요 없을 수 있습니다. */
-/* 만약 로그인/로그아웃 상태에 따라 전체 레이아웃이 달라진다면 유지 */
-/* .authenticated-layout {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-} */
-
-/* 라우트 뷰가 표시될 주 영역 스타일 (필요하다면) */
-/* .main-content {
-  flex-grow: 1;
-  overflow-y: auto;
-   패딩 조정 (헤더와 네비게이션 바 높이 고려)
-  padding-bottom: 70px;
-} */
-
 
 nav {
   border-top: 1px solid #e1e1e1;
@@ -66,7 +67,8 @@ nav {
   right: 0;
   height: 70px;
   display: flex;
-  justify-content: center;
+  /* 링크들을 균등하게 배치 */
+  justify-content: space-around;
   align-items: center;
   background-color: white;
   /* 하단 고정을 원하면 주석 해제 */
@@ -75,38 +77,86 @@ nav {
   /* width: 100%; */
 }
 
+/* nav 바로 아래의 router-link (기본)와 a 태그 (custom)에 flex 속성 적용 */
+nav > a,
+nav > .router-link-active, /* 기본 router-link가 렌더링하는 a 태그 */
+nav > .router-link-exact-active /* 기본 router-link가 렌더링하는 a 태그 */
+{
+  flex: 1; /* 각 항목이 같은 너비 차지 */
+  text-align: center; /* 텍스트 중앙 정렬 */
+}
+
 nav a {
   color: #999;
   text-decoration: none;
-  flex: 1;
-  text-align: center;
   font-size: 13px;
+  display: flex; /* 아이콘과 텍스트를 세로로 배치하기 위해 flex 사용 */
+  flex-direction: column; /* 세로 방향 정렬 */
+  align-items: center; /* 가로 중앙 정렬 */
+  justify-content: center; /* 세로 중앙 정렬 */
+  padding: 0; /* 링크 자체의 패딩 제거 */
+  height: 100%; /* 부모 li/nav 높이 채우기 */
 }
+
 nav a:before{
   content: '';
   display: block;
   width: 20px;
   height: 18px;
-  background-color:#999;
+  background-color:#999; /* 기본 아이콘 색상 */
   -webkit-mask-image: url(~@/assets/images/common/ico_menu_home.svg);
   -webkit-mask-size: cover;
-  margin: 0 auto 4px;
+  mask-image: url(~@/assets/images/common/ico_menu_home.svg); /* 표준 mask-image 추가 */
+  mask-size: cover;
+  margin: 0 auto 4px; /* 중앙 정렬 및 하단 여백 */
 }
-nav a:nth-child(2):before{
-  -webkit-mask-image: url(~@/assets/images/common/ico_menu_map.svg);
-}
-nav a:nth-child(3):before{
-  -webkit-mask-image: url(~@/assets/images/common/ico_menu_user.svg);
-}
-nav a:nth-child(4):before{
-  -webkit-mask-image: url(~@/assets/images/common/ico_menu_board.svg);
-}
+/* nth-child 선택자는 custom prop 사용으로 인해 번호가 달라질 수 있습니다. */
+/* 각 router-link에 직접 to 경로를 기반으로 선택하는 것이 더 안정적일 수 있습니다. */
 
+/* 기본 router-link-exact-active 스타일 (정확히 일치할 때) */
+/* 이 스타일은 다른 링크들에 계속 적용됩니다. */
 nav a.router-link-exact-active {
-  color: #005fec;
-  font-weight: bold;
+  color: #005fec; /* 활성화 글자 색상 */
+  font-weight: bold; /* 활성화 글자 굵기 */
 }
 nav a.router-link-exact-active:before{
-  background-color:#005fec;
+  background-color:#005fec; /* 활성화 아이콘 색상 */
+  -webkit-mask-image: url(~@/assets/images/common/ico_menu_home.svg); /* 홈 아이콘 기본값 */
+  mask-image: url(~@/assets/images/common/ico_menu_home.svg);
 }
+
+/* router-link-active 스타일 (경로 포함 시) */
+/* '게시판' 링크의 경우 isBoardActive가 true일 때 이 클래스를 강제로 적용합니다. */
+nav a.router-link-active {
+   color: #005fec;
+   font-weight: bold;
+}
+nav a.router-link-active:before{
+  background-color:#005fec;
+   /* 각 메뉴별 아이콘 이미지를 여기서 다시 설정해야 할 수 있습니다. */
+   /* 아니면 기본 아이콘 스타일은 nav a:before에 두고, 활성화 시 배경색만 바꾸는 방식 */
+}
+
+/* 각 메뉴별 아이콘 스타일 재정의 (custom prop 사용 시 nth-child가 불안정해질 수 있으므로) */
+/* 예를 들어, to 속성 값으로 선택하는 방식 */
+nav a[href="/map"]:before {
+    -webkit-mask-image: url(~@/assets/images/common/ico_menu_map.svg);
+    mask-image: url(~@/assets/images/common/ico_menu_map.svg);
+}
+nav a[href="/user"]:before {
+    -webkit-mask-image: url(~@/assets/images/common/ico_menu_user.svg);
+    mask-image: url(~@/assets/images/common/ico_menu_user.svg);
+}
+nav a[href="/board"]:before {
+    -webkit-mask-image: url(~@/assets/images/common/ico_menu_board.svg);
+    mask-image: url(~@/assets/images/common/ico_menu_board.svg);
+}
+
+/* 활성화된 아이콘 색상 변경 (배경색만 변경) */
+nav a.router-link-active:before,
+nav a.router-link-exact-active:before {
+    background-color:#005fec;
+}
+
+
 </style>

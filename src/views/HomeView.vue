@@ -136,6 +136,6 @@ onMounted(() => {
   .list > ul > li{display: inline-block;}
   .list > ul > li + li{margin-left: 5px;}
   .list > ul > li > a{}
-  .list > ul > li > a > img{width: 130px;}
+  .list > ul > li > a > img{width: 150px;}
   .btn-feed{position: fixed; bottom: 70px; right: 15px; height: 50px; background: rgb(19, 177, 56); border: 0;  font-size: 20px; color: #fff; padding: 0 20px; border-radius: 25px; cursor: pointer; box-shadow: 3px 3px 3px rgba(0, 0, 0, .2);}
 </style>

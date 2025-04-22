@@ -1,9 +1,12 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth"; // Firebase Authentication 사용 시
-import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp } from "firebase/firestore"; // Firestore 사용 시
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"; // Firebase Storage 사용 시
+// src/firebase.js - Firebase 초기화 및 서비스 인스턴스 내보내기
 
-// 1단계에서 복사한 Firebase 구성 정보를 여기에 붙여넣으세요.
+// Firebase v9+ 모듈 API 사용
+import { initializeApp, getApps, getApp } from 'firebase/app'; // getApps, getApp import
+import { getAuth } from 'firebase/auth'; // getAuth 함수 import
+import { getFirestore } from 'firebase/firestore'; // getFirestore 함수 import
+import { getStorage } from 'firebase/storage'; // getStorage 함수 import
+
+// Firebase 프로젝트 설정 정보
 const firebaseConfig = {
     apiKey: "AIzaSyCsmoAvhD3IHD0ZD_-VKvRuDtACF4SD0B4",
     authDomain: "route-39ef2.firebaseapp.com",
@@ -14,12 +17,24 @@ const firebaseConfig = {
     measurementId: "G-XFSMVS2B6B"
 };
 
-const app = initializeApp(firebaseConfig);
+// Firebase 앱 초기화 (앱 전체에서 단 한 번만 호출되도록 getApps() 확인)
+// 이미 초기화된 앱이 있다면 해당 인스턴스를 가져옵니다.
+const apps = getApps();
+const firebaseApp = !apps.length ? initializeApp(firebaseConfig) : getApp();
 
-// 서비스 초기화
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app); // Storage 초기화
+// console.log("Firebase 앱 인스턴스 가져옴/초기화 완료", firebaseApp);
 
-// 필요한 Firebase 서비스 인스턴스를 내보냅니다.
-export { auth, db, storage, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, storageRef, uploadBytes, getDownloadURL, deleteObject };
+
+// Firebase 서비스 인스턴스 가져오기 (초기화된 앱 사용)
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+const storage = getStorage(firebaseApp);
+
+// console.log("Firestore 인스턴스 가져옴", db);
+// console.log("Auth 인스턴스 가져옴", auth);
+// console.log("Storage 인스턴스 가져옴", storage);
+
+
+// 다른 파일에서 Firebase 서비스 인스턴스 (auth, db, storage)를 사용하려면 export 합니다.
+// 개별 함수들 (collection, addDoc 등)은 사용하는 파일에서 해당 서비스 모듈에서 직접 import 합니다.
+export { auth, db, storage };
