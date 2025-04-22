@@ -249,6 +249,10 @@ body,
 	background-color: rgba(76, 175, 80, 0.9) !important;
 	color: white !important;
 }
+.green-button:disabled{
+	cursor: default;
+	background-color: rgba(141, 141, 141, 0.3) !important;
+}
 .form-group{
 	position: relative;
 }

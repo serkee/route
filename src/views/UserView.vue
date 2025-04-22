@@ -26,7 +26,7 @@
         <ul>
           <li>
             <a href="javascript:void(0)">
-              <img src="@/assets/images/contents/@thumb.png" alt="">
+              <img src="@/assets/images/contents/noimg.png" alt="">
             </a>
           </li>
           <li>
@@ -88,14 +88,14 @@ const changeTab = (index) => {
 </script>
   
 <style scoped>
-.content{width: 100%; position: relative; padding-top: 60px;}
+.content{width: 100%; position: relative; padding-top: 70px;}
   .tab{position: fixed; left:0; right:0; top: 50px; z-index: 2;}
   .tab > ul{display: flex; background: #fff; padding-top: 20px;}
   .tab > ul > li{flex: 1;}
   .tab > ul > li > button{height: 40px; font-size: 18px; border:0; border-bottom: 1px solid rgb(223, 223, 223); background: transparent; width: 100%; padding: 0; cursor: pointer; padding-bottom: 1px;}
   .tab > ul > li.active > button{border-bottom: 2px solid rgb(19, 177, 56); font-weight: bold; color: rgb(19, 177, 56); padding-bottom: 0;}
   .list{}
-  .list > ul{display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;}
+  .list > ul{display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;}
   .list > ul > li{}
   .list > ul > li > a{}
   .list > ul > li > a > img{width: 100%;}

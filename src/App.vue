@@ -24,7 +24,7 @@ const userStore = useUserStore();
 onMounted(() => {
   // 앱 로딩 시 인증 상태 확인 (로컬 스토리지 등)
   userStore.checkAuthOnLoad();
-  console.log('App.vue - onMounted - userStore.isLoggedIn:', userStore.isLoggedIn);
+  //console.log('App.vue - onMounted - userStore.isLoggedIn:', userStore.isLoggedIn);
   // onMounted에서의 리디렉션 로직은 네비게이션 가드로 대체됩니다.
 });
 

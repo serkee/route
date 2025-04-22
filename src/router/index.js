@@ -9,6 +9,7 @@ import UserView from '../views/UserView.vue'; // UserView import
 import BoardView from '../views/BoardView.vue'; // BoardView import
 import BoardWriteView from '../views/BoardWriteView.vue';
 import BoardDetailView from '../views/BoardDetailView.vue';
+import SimpleTestPage from '../views/SimpleTestPage.vue'
 
 // Pinia 스토어 사용을 위해 import
 import { useUserStore } from '@/store/user';
@@ -67,6 +68,10 @@ const routes = [
     name: 'board-detail',
     component: BoardDetailView,
     meta: { requiresAuth: true } // 상세 페이지도 로그인이 필요하다고 가정
+  },{
+    path: '/test-firestore', // 접근할 URL 경로
+    name: 'testFirestore',
+    component: SimpleTestPage // 컴포넌트 연결
   }
 ];
 
