@@ -22,3 +22,6 @@ pnpm-debug.log*
 *.sln
 *.sw?
 node_modules
+
+# Ignore the Firebase config file
+src/firebase.js
