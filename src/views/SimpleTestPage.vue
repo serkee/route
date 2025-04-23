@@ -14,7 +14,7 @@
   import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
   // main.js 등에서 초기화하고 export 한 Firestore 인스턴스를 import 합니다.
   // @/main.js 경로는 프로젝트 설정에 따라 다를 수 있습니다.
-  import { db } from '@/main.js';
+  import { db } from '@/firebase';
   
   // Firebase Auth SDK (로그인 사용자 테스트 시 필요)
   import { getAuth } from 'firebase/auth';

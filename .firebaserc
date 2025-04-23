@@ -1,7 +1,6 @@
 {
   "projects": {
-    "default": "route-39ef2",
-    "y": "route-39ef2"
+    "default": "routefinding-c7cfa"
   },
   "targets": {},
   "etags": {}

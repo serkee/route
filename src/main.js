@@ -4,42 +4,24 @@ import App from './App.vue';
 import router from './router';
 import pinia from './store';
 
-// Firebase v9+ 모듈 API 사용
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore'; // getFirestore 함수 import
-
-
-// Firebase 프로젝트 설정 정보
-const firebaseConfig = {
-    apiKey: "AIzaSyCsmoAvhD3IHD0ZD_-VKvRuDtACF4SD0B4",
-    authDomain: "route-39ef2.firebaseapp.com",
-    projectId: "route-39ef2",
-    storageBucket: "route-39ef2.firebasestorage.com",
-    messagingSenderId: "1069984410299",
-    appId: "1:1069984410299:web:c7c480f00df44b0a90979e",
-    measurementId: "G-XFSMVS2B6B"
-};
-
-const apps = getApps();
-if (!apps.length) {
-  initializeApp(firebaseConfig);
-//   console.log("Firebase 앱 초기화 완료 (v9+)");
-} else {
-  getApp();
-//   console.log("Firebase 앱 이미 초기화됨 (v9+)");
-}
-
-// Firestore 인스턴스 가져오기 (초기화 이후에만 호출)
-const db = getFirestore(); // <-- 주석 해제하여 함수 호출 및 인스턴스 할당
-// console.log("Firestore 인스턴스 가져옴 (v9+)", db);
-
-// 다른 파일에서 Firestore 인스턴스를 사용하려면 export 합니다.
-export { db }; // <-- db 인스턴스를 외부에서 import 할 수 있도록 export
+// Firebase 서비스 인스턴스를 firebase.js 파일에서 import 합니다.
+// firebase.js에서 Firebase 초기화가 일어납니다.
+import { auth, db, storage } from '@/firebase'; // <-- auth, db, storage import
 
 
 const app = createApp(App);
+
+// Firebase 서비스 인스턴스들을 Vue 애플리케이션에 provide 합니다.
+// 이제 컴포넌트에서 inject를 통해 이 서비스 인스턴스들을 받아 사용할 수 있습니다.
+app.provide('firebaseAuth', auth);
+app.provide('firestoreDb', db);
+app.provide('firebaseStorage', storage);
+
 
 app.use(router);
 app.use(pinia);
 
 app.mount('#app');
+
+// 필요하다면 여기서도 서비스 인스턴스를 사용할 수 있습니다.
+// console.log("main.js - Firestore 인스턴스:", db);

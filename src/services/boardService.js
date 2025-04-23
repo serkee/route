@@ -1,13 +1,5 @@
-// src/services/boardService.js - 게시판 관련 Firebase Firestore 상호작용 서비스 파일
 
-// Firebase 서비스 인스턴스인 db를 import 합니다.
-// db 인스턴스가 @/firebase에서 내보내졌다면 @/firebase에서 import합니다.
-// 만약 main.js에서 내보내졌다면 @/main.js에서 import해야 합니다.
-// 우리 논의 구조상 @/firebase에서 내보내고 main.js가 @/firebase를 import하는 방식입니다.
 import { db } from '@/firebase'; // Firebase 서비스 인스턴스 import
-
-// Firebase Firestore 모듈에서 필요한 개별 함수들을 직접 import 합니다.
-// boardService에서 사용될 collection, getDocs, query, orderBy 등 모든 Firestore 함수들을 여기에 나열합니다.
 import {
   collection,
   getDocs,
@@ -16,17 +8,14 @@ import {
   doc,
   getDoc,
   addDoc,
-  // updateDoc, // <-- 이 부분을 제거합니다.
   deleteDoc,
   serverTimestamp
-  // 필요한 다른 Firestore 함수들도 여기에 추가
 } from 'firebase/firestore';
 
 
 // 게시글 목록을 가져오는 함수
 const getPosts = async () => {
   try {
-    // db 인스턴스와 import된 collection, query, orderBy, getDocs 함수를 사용합니다.
     const postsCollectionRef = collection(db, 'posts'); // 'posts' 컬렉션 참조
     const q = query(postsCollectionRef, orderBy('createdAt', 'desc')); // 최신순 정렬 쿼리
     const querySnapshot = await getDocs(q); // 쿼리 실행하여 문서 스냅샷 가져오기

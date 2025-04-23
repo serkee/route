@@ -1,10 +1,10 @@
 <template>
-  <div class="board-detail-container">
+  <div class="container">
     <div class="header">
       <button class="back-button" @click="goBack">←</button>
       <h1>게시글 상세</h1>
        <button v-if="post && currentUser && currentUser.uid === post.authorId" @click="handleDelete" class="delete-button">삭제</button>
-       <div v-else class="header__right"></div> {/* 삭제 버튼 없을 때 공간 맞춤용 */}
+       <div v-else class="header__right"></div>
     </div>
 
     <div v-if="loading" class="loading">로딩 중...</div>
@@ -14,20 +14,17 @@
     <div v-else class="post-content">
       <h2>{{ post.title }}</h2>
       <p>카테고리: {{ post.category }}</p>
-      <p>작성자 ID: {{ post.authorId }}</p> {/* 또는 작성자 이름 표시 */}
-      <p>작성일: {{ formatDate(post.createdAt) }}</p> {/* 날짜 포맷 함수 필요 */}
+      <p>작성자 ID: {{ post.authorId }}</p>
+      <p>작성일: {{ formatDate(post.createdAt) }}</p>
       <p>조회수: {{ post.views }}</p>
       <div class="content-body">
-        {{ post.content }} {/* 게시글 본문 */}
+        {{ post.content }}
       </div>
 
-      {/* 댓글 섹션 (필요하다면 구현) */}
       <div class="comments-section">
         <h3>댓글 ({{ post.commentCount || 0 }})</h3>
-        {/* 댓글 목록 표시 */}
-        {/* <div v-for="comment in comments" :key="comment.id"> ... </div> */}
+        <div v-for="comment in comments" :key="comment.id"> ... </div>
 
-        {/* 댓글 입력 폼 (로그인 사용자에게만 보이기) */}
         <div v-if="currentUser" class="add-comment-form">
             <textarea v-model="newCommentText" placeholder="댓글을 입력하세요"></textarea>
             <button @click="addComment">댓글 작성</button>
@@ -174,44 +171,24 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.board-detail-container {
-  padding: 20px;
-}
-
-.header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 10px;
-}
-
-.header h1 {
-    font-size: 24px;
-    margin: 0;
-    flex-grow: 1; /* 제목이 남은 공간 차지 */
-    text-align: center;
-}
-
-.back-button, .delete-button {
-    background: none;
-    border: none;
-    font-size: 18px;
-    cursor: pointer;
-    padding: 5px;
-}
 
 .delete-button {
-    color: red;
+    background: none;
+    border: none;
+    cursor: pointer;
+    width: 50px;
+    font-size: 0;
+    background-color: #c7c7c7;
+    -webkit-mask-image: url(@/assets/images/common/ico_del.svg);
+    mask-image: url(@/assets/images/common/ico_del.svg);
+    mask-repeat: no-repeat;
+    mask-position: center center;
+    -webkit-mask-size: 20px auto;
 }
 
 .post-content {
-    border: 1px solid #ddd;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
     text-align: left; /* 본문 정렬 */
+    width: 100%;
 }
 
 .post-content h2 {
@@ -260,7 +237,8 @@ onMounted(async () => {
     border: 1px solid #ccc;
     border-radius: 4px;
     resize: vertical;
-    min-height: 60px;
+    min-height: 90px;
+    box-sizing: border-box;
 }
 
 .add-comment-form button {
@@ -271,6 +249,7 @@ onMounted(async () => {
     border-radius: 4px;
     cursor: pointer;
     align-self: flex-start; /* 버튼을 상단에 정렬 */
+    height: 90px;
 }
 
 .login-prompt {

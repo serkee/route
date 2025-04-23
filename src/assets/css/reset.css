@@ -205,7 +205,7 @@ body,
 	opacity: .3;
 }
 .btn-logout{
-	width: 100%;
+	width: 50px;
 	height: 100%;
 	background: url(@/assets/images/common/ico_logout.svg) no-repeat center center;
 	background-size: 19px auto;
@@ -220,7 +220,7 @@ body,
 	background-size: 10px auto;
 	cursor: pointer;
 	height: 100%;
-	width: 100%;
+	width: 50px;
 	padding: 0;
 }
 
@@ -231,6 +231,7 @@ body,
 	left: 0;
 	right: 0;
 	display: flex;
+	background-color: #fff;
 }
 
 .bottom-container>button {
