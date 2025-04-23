@@ -130,48 +130,6 @@ return {
 <style scoped>
 /* 기존 스타일 유지 */
 
-.container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh; /* 뷰포트 높이 전체 사용 */
-  overflow: hidden; /* 전체 컨테이너 스크롤 방지 */
-}
-
-.header {
-  flex-shrink: 0; /* 헤더 고정 */
-   display: flex;
-   align-items: center;
-   justify-content: space-between;
-   padding: 10px 0;
-   border-bottom: 1px solid #eee;
-   background-color: white;
-   width: 100%;
-   box-sizing: border-box;
-}
-
-.header__left, .header__right {
-    width: 50px; /* 좌우 여백 또는 버튼 공간 */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.back-button {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    color: #333;
-}
-
-h1 {
-    flex-grow: 1; /* 제목이 중앙을 차지하도록 */
-    text-align: center;
-    margin: 0;
-    font-size: 20px;
-    color: #333;
-}
-
 .middle{
   display: flex;
   justify-content: center;
@@ -180,11 +138,11 @@ h1 {
   flex-grow: 1; /* 남은 공간을 middle이 차지 */
    padding: 20px; /* 패딩 추가 */
    box-sizing: border-box;
+   width: 100%;
 }
 
 form {
   width: 100%; /* middle 너비에 맞춤 */
-  max-width: 350px; /* 최대 너비 설정 */
   padding: 30px;
   border: 1px solid #ddd;
   border-radius: 5px;

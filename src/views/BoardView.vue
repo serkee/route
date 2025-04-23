@@ -9,8 +9,7 @@
           </li>
           <li :class="{ active: activeTab === 1 }">
             <button @click="changeTab(1)">루트</button>
-            <!-- <span class="new">N</span> -->
-          </li>
+            </li>
           <li :class="{ active: activeTab === 2 }">
             <button @click="changeTab(2)">중고마켓</button>
           </li>
@@ -43,54 +42,60 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from "vue";
-import { useRouter } from "vue-router";
-import AppHeader from "@/components/AppHeader.vue"; // AppHeader 컴포넌트 import (경로 확인)
+// useRoute 추가 import
+import { useRouter, useRoute } from "vue-router"; {/* <--- useRoute import */}
+import AppHeader from "@/components/AppHeader.vue";
 
-// Firebase Firestore SDK에서 필요한 함수들을 import 합니다.
-// where 함수를 추가로 import 해야 합니다.
 import { collection, query, orderBy, onSnapshot, where } from 'firebase/firestore';
-// main.js 등에서 초기화하고 export 한 Firestore 인스턴스를 import 합니다.
-import { db } from '@/firebase'; // @/firebase에서 db 인스턴스 import
+import { db } from '@/firebase';
 
-// 현재 활성화된 탭의 인덱스를 저장하는 반응형 변수
 const activeTab = ref(0);
 
 const router = useRouter();
+const route = useRoute(); {/* <--- route 인스턴스 가져오기 */}
 
-// Firestore에서 불러온 게시글 목록을 저장할 반응형 변수
+
 const posts = ref([]);
 
-// Firestore 실시간 리스너 해제 함수를 저장할 변수
 let unsubscribe = null;
 
-// 탭 인덱스와 카테고리 필드 값을 매핑하는 객체
-// 실제 Firestore 문서에 저장될 category 필드 값을 정확히 여기에 매핑해야 합니다.
 const categoryMap = {
-  0: 'free',    // 자유게시판 탭 (인덱스 0) -> category 필드 값이 'free'인 문서
-  1: 'route',   // 루트 탭 (인덱스 1) -> category 필드 값이 'route'인 문서
-  2: 'market'   // 중고마켓 탭 (인덱스 2) -> category 필드 값이 'market'인 문서
+  0: 'free',
+  1: 'route',
+  2: 'market'
 };
+
+// *** 추가: 카테고리 필드 값으로 탭 인덱스를 찾는 역방향 매핑 또는 함수 ***
+const getTabIndexFromCategory = (categoryValue) => {
+    const index = Object.keys(categoryMap).find(key => categoryMap[key] === categoryValue);
+    // 유효한 카테고리 값이면 해당 인덱스 반환, 없으면 기본값 0 (자유게시판) 반환
+    return index !== undefined ? Number(index) : 0;
+};
+
 
 // 탭 변경 함수
 const changeTab = (index) => {
+  // 현재 활성 탭과 클릭된 탭이 같으면 데이터 다시 로드하지 않음 (불필요한 리스너 재설정 방지)
+  if (activeTab.value === index) {
+      return;
+  }
+
   activeTab.value = index;
   console.log("탭이 변경되었습니다. 인덱스:", index);
 
-  // 기존 실시간 리스너가 있다면 해제합니다.
   if (unsubscribe) {
     unsubscribe();
     console.log("기존 Firestore 리스너 해제됨.");
   }
 
-  // 선택된 탭의 인덱스에 해당하는 카테고리 값을 가져옵니다.
   const selectedCategory = categoryMap[index];
   if (selectedCategory !== undefined) {
-    // 새로운 카테고리에 해당하는 게시글 목록 실시간 리스닝 시작
-    // 'posts'는 실제 Firestore 컬렉션 이름으로 변경하세요. (게시글 전체를 담는 컬렉션)
-    listenForPosts('posts', selectedCategory); // 컬렉션 이름과 선택된 카테고리 전달
+    // 탭 변경 시에도 URL 쿼리 파라미터를 업데이트하여 상태 유지 (선택 사항)
+    // router.push({ query: { category: selectedCategory } }); // 이렇게 하면 URL에 ?category=... 추가
+
+    listenForPosts('posts', selectedCategory);
   } else {
       console.error(`알 수 없는 탭 인덱스: ${index}`);
-      // 오류 처리 또는 기본 탭 로드 로직 추가
   }
 };
 
@@ -98,24 +103,20 @@ const changeTab = (index) => {
 const listenForPosts = (collectionName, category) => {
   console.log(`Firestore에서 게시글 목록 리스닝 시작: ${collectionName}, 카테고리: ${category}`);
 
-  const postsCollectionRef = collection(db, collectionName); // Firestore 인스턴스(db)와 컬렉션 이름으로 참조 생성
+  const postsCollectionRef = collection(db, collectionName);
 
-  // 쿼리 생성:
-  // 1. 'category' 필드가 선택된 카테고리 값과 같은 문서만 필터링 (where)
-  // 2. 필터링된 문서를 'createdAt' 필드 기준 내림차순 정렬 (orderBy)
   const q = query(
     postsCollectionRef,
-    where('category', '==', category), // <-- category 필드로 필터링!
-    orderBy('createdAt', 'desc') // 'createdAt' 필드가 있다고 가정
+    where('category', '==', category),
+    orderBy('createdAt', 'desc')
   );
 
-  // 실시간 리스너 설정
   unsubscribe = onSnapshot(q, (snapshot) => {
     const postsList = [];
     snapshot.forEach((doc) => {
       postsList.push({ id: doc.id, ...doc.data() });
     });
-    posts.value = postsList; // 반응형 변수 업데이트
+    posts.value = postsList;
     console.log(`카테고리 '${category}'의 Firestore 데이터 업데이트:`, posts.value);
   }, (error) => {
     console.error("Firestore 리스닝 오류:", error);
@@ -124,28 +125,54 @@ const listenForPosts = (collectionName, category) => {
 };
 
 
-// "피드쓰기" 버튼 클릭 시 쓰기 페이지로 이동하는 함수
 const goToWritePage = () => {
-  router.push("/board/write"); // 쓰기 페이지 라우트 경로로 이동
+  router.push("/board/write");
 };
 
-// 게시글 상세 페이지로 이동하는 함수 (Firestore 문서 ID 사용)
 const goToPostDetail = (postId) => {
   console.log("게시글 클릭. 상세 페이지로 이동 (ID:", postId, ")");
   router.push(`/board/${postId}`);
 };
 
-// 컴포넌트가 마운트될 때 실행 (화면에 표시될 때)
+// *** onMounted 훅 수정: URL 쿼리 파라미터 읽어서 초기 카테고리 설정 ***
 onMounted(() => {
-  // 컴포넌트 마운트 시 기본 탭(자유게시판, 인덱스 0)에 해당하는 게시글 목록 실시간 리스닝 시작
-  const initialCategory = categoryMap[activeTab.value]; // 초기 탭의 카테고리 가져오기
-   // 'posts'는 실제 Firestore 컬렉션 이름으로 변경하세요.
-  listenForPosts('posts', initialCategory); // 컬렉션 이름과 초기 카테고리 전달
+  // 컴포넌트 마운트 시 URL 쿼리 파라미터에서 'category' 값을 읽습니다.
+  const categoryFromQuery = route.query.category;
+  let initialCategory;
+  let initialTabIndex = 0; // 기본 탭 인덱스 (0: 자유게시판)
+
+  if (categoryFromQuery) {
+      // 쿼리 파라미터에서 카테고리 값을 가져온 경우
+      // 해당 카테고리 값으로 탭 인덱스를 찾습니다.
+      const foundIndex = getTabIndexFromCategory(categoryFromQuery);
+
+      // 찾은 인덱스가 유효하면 (categoryMap에 있는 값이라면)
+      if (categoryMap[foundIndex] === categoryFromQuery) {
+          initialCategory = categoryFromQuery;
+          initialTabIndex = foundIndex; // 해당 탭 인덱스 사용
+          console.log(`초기 카테고리 (쿼리 파라미터): ${initialCategory}, 탭 인덱스: ${initialTabIndex}`);
+      } else {
+          // 쿼리 파라미터 값이 유효하지 않으면 기본 탭 사용
+          initialCategory = categoryMap[activeTab.value]; // activeTab의 초기값 또는 이전에 설정된 값 사용
+          initialTabIndex = activeTab.value;
+          console.log(`초기 카테고리 (쿼리 파라미터 유효하지 않음, 기본값 사용): ${initialCategory}, 탭 인덱스: ${initialTabIndex}`);
+      }
+  } else {
+      // 쿼리 파라미터가 없는 경우, 기본 탭 (activeTab.value의 초기값) 사용
+      initialCategory = categoryMap[activeTab.value];
+      initialTabIndex = activeTab.value;
+       console.log(`초기 카테고리 (쿼리 파라미터 없음, 기본값 사용): ${initialCategory}, 탭 인덱스: ${initialTabIndex}`);
+  }
+
+  // determine된 초기 탭 인덱스로 activeTab 상태 업데이트
+   activeTab.value = initialTabIndex;
+
+
+  // 'posts'는 실제 Firestore 컬렉션 이름으로 변경하세요.
+  listenForPosts('posts', initialCategory); // 결정된 초기 카테고리로 데이터 로드
 });
 
-// 컴포넌트가 언마운트될 때 실행 (페이지 이동 등으로 컴포넌트가 사라질 때)
 onUnmounted(() => {
-  // 메모리 누수 방지를 위해 onSnapshot 리스너를 해제합니다.
   if (unsubscribe) {
     unsubscribe();
     console.log("Firestore 리스너 해제됨.");
@@ -237,11 +264,10 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 0;
+  padding: 15px 0;
   gap: 10px;
   text-decoration: none;
   color: #222;
-  min-height: 100px;
 }
 .list > ul > li > a .txt {
   flex: 1;
@@ -256,7 +282,7 @@ onUnmounted(() => {
 }
 .list > ul > li > a .txt > ul {
   display: flex;
-  margin-top: 15px;
+  margin-top: 10px;
   gap: 30px;
   padding: 0;
 }
