@@ -12,13 +12,16 @@
 
       <form @submit.prevent="login">
         <div class="form-group">
-          <label for="email">이메일</label> <input type="email" id="email" v-model="email" required autocomplete="off"/> </div>
+          <label for="email">이메일</label>
+          <input type="email" id="email" v-model="email" required autocomplete="off"/>
+        </div>
         <div class="form-group">
           <label for="password">비밀번호</label>
           <input type="password" id="password" v-model="password" required autocomplete="off"/>
         </div>
         <button type="submit">로그인</button>
       </form>
+
       <p class="signup-link">
         아직 계정이 없으신가요? <router-link to="/signup">회원가입</router-link>
       </p>
@@ -26,105 +29,78 @@
   </div>
 </template>
 
-<script setup> // <script> 대신 <script setup> 사용
+<script setup>
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { useUserStore } from "@/store/user";
+// Pinia 스토어 import (userStore 변수를 사용하지 않으므로 import도 제거합니다)
+// import { useUserStore } from "@/store/user";
 
-// Firebase Auth SDK에서 필요한 함수들을 import 합니다.
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-// Firebase 앱은 main.js 등 다른 곳에서 이미 초기화되었다고 가정합니다.
+// Firebase Auth SDK 직접 import는 제거합니다.
+// import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+
+// userService에서 정의한 로그인 함수를 import 합니다.
+import { loginUser } from "@/services/userService"; // <--- 이 함수를 import 합니다.
+
 
 // 상태 변수 (이메일과 비밀번호)
-// Firebase 이메일/비밀번호 인증에는 '이메일'이 필요하므로 변수 이름을 email로 변경하는 것이 좋습니다.
 const email = ref("");
 const password = ref("");
 
 const router = useRouter();
-const userStore = useUserStore();
+// userStore 변수 선언 제거합니다.
+// const userStore = useUserStore(); // <--- 이 줄을 제거합니다.
 
-// Firebase Auth 서비스 인스턴스를 가져옵니다.
-// Firebase 앱 초기화 이후에 호출 가능합니다.
-const auth = getAuth();
+
+// Firebase Auth 서비스 인스턴스를 직접 가져오는 코드는 제거합니다.
+// const auth = getAuth();
+
 
 // 컴포넌트가 마운트될 때 실행됩니다.
 onMounted(() => {
-  email.value = ""; // username 대신 email 초기화
+  email.value = "";
   password.value = "";
+  // TODO: 이미 로그인 상태라면 특정 페이지로 리디렉션하는 로직을 여기에 추가할 수 있습니다.
+  // Pinia 스토어 상태 접근이 필요하다면 useUserStore()를 다시 호출해야 합니다.
+  // const userStore = useUserStore();
+  // if (userStore.isAuthenticated) { router.replace('/board'); }
 });
 
 // 뒤로 가기 함수
 const goBack = () => {
-  router.go(-1); // 뒤로 한 단계 이동
+  router.go(-1);
 };
 
-// 로그인 함수 (Firebase Authentication 사용)
+// 로그인 함수 (userService의 loginUser 함수 사용)
 const login = async () => {
+  // 기본적인 입력값 유효성 검사
+  if (!email.value || !password.value) {
+      alert("이메일과 비밀번호를 모두 입력해주세요.");
+      return;
+  }
+
   try {
-    // Firebase Auth의 signInWithEmailAndPassword 함수를 사용하여 로그인 시도
-    // 첫 번째 인자는 Auth 인스턴스, 두 번째는 이메일, 세 번째는 비밀번호입니다.
-    const userCredential = await signInWithEmailAndPassword(auth, email.value, password.value);
+    // userService에 정의된 loginUser 함수를 호출합니다.
+    // 이 함수 안에서 Firebase 인증, 스토어 업데이트(닉네임/사진URL 포함) 처리가 모두 일어납니다.
+    const user = await loginUser(email.value, password.value); // <--- signInWithEmailAndPassword 대신 이 함수 호출
 
-    // 로그인 성공 시 userCredential 객체에서 사용자 정보를 얻습니다.
-    const user = userCredential.user;
+    // userService.loginUser 함수는 성공 시 user 객체를 반환하고 실패 시 에러를 throw합니다.
+    // 에러가 throw되지 않았다면 로그인 성공입니다.
 
-    // 로그인 성공 처리
-    console.log("Firebase 로그인 성공:", user);
+    console.log("LoginView: loginUser 함수 호출 완료. 반환된 사용자:", user);
 
-    // Pinia 스토어에 사용자 정보 업데이트
-    // 필요한 사용자 정보를 user 객체에서 가져와 저장합니다.
-    userStore.setUser({
-      uid: user.uid, // Firebase에서 제공하는 고유 사용자 ID
-      email: user.email, // 사용자의 이메일
-      displayName: user.displayName, // 사용자의 표시 이름 (있는 경우)
-      photoURL: user.photoURL, // 사용자 프로필 사진 URL (있는 경우)
-      // 필요한 다른 Firebase User 속성을 여기에 추가할 수 있습니다.
-      isLoggedIn: true // 로그인 상태를 true로 설정
-    });
-    console.log("LoginView - userStore.isLoggedIn:", userStore.isLoggedIn);
-
-    // 로그인 성공 후 홈 페이지 또는 목표 페이지로 이동
-    router.push("/home");
+    // 로그인 성공 후 이동할 페이지로 라우팅
+    // alert("로그인 성공!"); // 성공 알림 (선택 사항)
+    router.push("/home"); // 게시판 목록 페이지로 이동 (예시)
 
   } catch (error) {
-    // Firebase Authentication 오류 처리
-    //console.error('Firebase 로그인 오류:', error.code, error.message);
-
-    let errorMessage = '로그인 실패: 알 수 없는 오류가 발생했습니다.';
-
-    // Firebase Auth 오류 코드에 따라 사용자에게 더 구체적인 메시지 표시
-    switch (error.code) {
-      case 'auth/user-not-found': // 해당 이메일로 등록된 사용자가 없을 때
-      case 'auth/wrong-password': // 비밀번호가 틀렸을 때
-        errorMessage = '로그인 실패: 이메일 또는 비밀번호를 확인해주세요.';
-        break;
-      case 'auth/invalid-email': // 이메일 형식이 올바르지 않을 때
-        errorMessage = '로그인 실패: 유효하지 않은 이메일 주소 형식입니다.';
-        break;
-      case 'auth/user-disabled': // 사용자 계정이 비활성화되었을 때
-        errorMessage = '로그인 실패: 이 사용자 계정이 비활성화되었습니다. 관리자에게 문의하세요.';
-        break;
-      case 'auth/too-many-requests': // 로그인 시도 과다로 계정이 잠겼을 때
-        errorMessage = '로그인 실패: 로그인 시도 횟수가 너무 많습니다. 나중에 다시 시도해주세요.';
-        break;
-      default: // 그 외 다른 오류
-        errorMessage = `로그인 실패: 로그인 정보 확인해주세요.`;
-    }
-
-    // 사용자에게 오류 메시지 알림
-    alert(errorMessage);
+    // userService.loginUser 함수에서 발생한 오류가 여기서 잡힙니다.
+    // userService에서 이미 alert를 띄우므로 여기서 또 띄울 필요는 없을 수 있습니다.
+    console.error("LoginView: 로그인 처리 중 오류 발생 (catch 블록):", error);
+    // alert(`로그인 중 오류가 발생했습니다: ${error.message}`); // userService에서 alert를 띄우지 않는 경우 활성화
   }
+  // finally 블록이 필요하다면 여기에 추가
 };
 
-// <script setup>을 사용하므로 setup 함수의 return은 필요 없습니다.
-/*
-return {
-  username, // email로 변경했다면 여기서도 email로 변경
-  password,
-  login,
-  goBack,
-};
-*/
 </script>
 
 <style scoped>

@@ -83,7 +83,8 @@ summary,
 time,
 mark,
 audio,
-textarea
+textarea,
+input,
 video {
 	margin: 0;
 	padding: 0;
@@ -244,6 +245,7 @@ body,
 	color: #4CAF50;
 	font-weight: 500;
 	flex: 1;
+	height: 62px;
 }
 
 .green-button {

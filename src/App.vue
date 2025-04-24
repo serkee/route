@@ -2,18 +2,17 @@
   <div id="app">
     <router-view />
 
-    <nav v-if="userStore.isLoggedIn">
+    <nav v-if="userStore.isAuthenticated">
       <router-link to="/home">홈</router-link> |
       <router-link to="/map">지도</router-link> |
       <router-link to="/user">사용자</router-link> |
 
       <router-link to="/board" custom v-slot="{ href, navigate, isExactActive }">
-        
         <a
           :href="href"
           @click="navigate"
           :class="{
-            'router-link-exact-active': isExactActive, /* 정확히 /board 일 때 활성화 */
+            'router-link-exact-active': isExactActive && route.path === '/board', /* 정확히 /board 일 때 활성화 */
             'router-link-active': isBoardActive /* /board 또는 하위 경로일 때 활성화 (우선 적용) */
           }"
         >
@@ -25,16 +24,16 @@
 </template>
 
 <script setup>
-import { onMounted, computed } from 'vue'; // computed import
+import { onMounted, computed } from 'vue';
 import { useUserStore } from '@/store/user'; // 스토어 경로에 맞춰 수정
-import { useRoute } from 'vue-router'; // useRoute import
+import { useRoute } from 'vue-router';
 
-
-// AppHeader는 HomeView 등 각 페이지에서 직접 사용하므로 App.vue에서는 import 하지 않음
+// userService에서 subscribeToAuthStateChanges 함수 import
+import { subscribeToAuthStateChanges } from '@/services/userService'; // <--- 이 함수를 import 합니다.
 
 
 const userStore = useUserStore();
-const route = useRoute(); // 현재 라우트 인스턴스 가져오기
+const route = useRoute();
 
 // '게시판' 항목이 활성화되어야 하는지 계산하는 Computed 속성
 // 라우트 경로가 '/board'로 시작하는지 확인
@@ -43,10 +42,15 @@ const isBoardActive = computed(() => {
 });
 
 
+// 컴포넌트 마운트 시 (앱 로드 시) 인증 상태 확인 리스너 설정
 onMounted(() => {
-  // 앱 로딩 시 인증 상태 확인 (로컬 스토리지 등)
-  userStore.checkAuthOnLoad();
+  console.log("[App.vue] onMounted: subscribeToAuthStateChanges 호출");
+  // userService에 정의된 인증 상태 변경 리스너 설정 함수 호출
+  subscribeToAuthStateChanges(); // <--- userStore.checkAuthOnLoad() 대신 이 함수를 호출합니다.
 });
+
+// TODO: 앱 전반적으로 필요한 로직 추가 (예: 인증 상태에 따른 라우트 가드 등)
+
 </script>
 
 <style scoped>
@@ -55,7 +59,7 @@ onMounted(() => {
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
   color: #2c3e50;
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }

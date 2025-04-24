@@ -87,6 +87,7 @@
         />
       </div>
       <div class="bottom-container">
+        
         <button type="submit" class="green-button" :disabled="!isFormValid">
           회원가입
         </button>
@@ -98,10 +99,7 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
-// userStore는 현재 예제에서 직접 사용하지 않지만, 필요에 따라 남겨둘 수 있습니다.
-// import { useUserStore } from '@/store/user'; // 스토어 경로에 맞춰 수정
 
-// 2단계에서 만든 회원가입 서비스 함수 import
 import { registerUserWithFirebase } from "@/services/userService";
 
 const username = ref("");
@@ -109,76 +107,46 @@ const email = ref("");
 const password = ref("");
 const confirmPassword = ref("");
 const router = useRouter();
-// const userStore = useUserStore(); // 필요에 따라 주석 처리 또는 제거
 
-// 이미지 파일 선택 기능을 위한 ref와 변수
 const fileInput = ref(null);
 const avatarPreview = ref("");
-const selectedFile = ref(null); // 업로드할 실제 파일 객체를 저장
+const selectedFile = ref(null);
 
-// 이메일 중복 확인 관련 상태 (Firebase Auth 방식과 맞지 않아 제거)
-// const emailChecked = ref(false);
-// const isEmailUnique = ref(false);
 
-// 컴포넌트가 마운트될 때 (화면에 표시될 때) 실행됩니다.
 onMounted(() => {
-  // 폼 필드 초기화
   username.value = "";
   email.value = "";
   password.value = "";
   confirmPassword.value = "";
   avatarPreview.value = "";
   selectedFile.value = null;
-  // 중복 확인 상태 초기화 로직 제거
-  // emailChecked.value = false;
-  // isEmailUnique.value = false;
 });
 
-// 뒤로 가기 함수
 const goBack = () => {
   router.go(-1);
 };
 
-// 카메라 아이콘 클릭 시 숨겨진 파일 입력 필드를 클릭하는 함수
 const triggerFileInput = () => {
   fileInput.value.click();
 };
 
-// 파일 선택 완료 시 실행되는 함수
 const handleFileSelect = (event) => {
   const file = event.target.files[0];
   if (file) {
-    selectedFile.value = file; // 선택된 파일 객체 저장
+    selectedFile.value = file;
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      avatarPreview.value = e.target.result; // 미리보기용 Data URL 저장
+      avatarPreview.value = e.target.result;
     };
     reader.readAsDataURL(file);
   } else {
-    selectedFile.value = null; // 파일 선택 취소 시 초기화
+    selectedFile.value = null;
     avatarPreview.value = "";
   }
 };
 
-// 이메일 입력 시 중복 확인 상태 초기화 로직 제거
-// const resetEmailCheck = () => {
-// emailChecked.value = false;
-// isEmailUnique.value = false;
-// };
-
-// 이메일 중복 확인 함수 (Firebase Auth 방식과 맞지 않아 제거)
-// const checkEmailDuplicate = async () => { ... };
-
-// 회원가입 버튼 활성화 조건
 const isFormValid = computed(() => {
-    console.log('--- isFormValid 계산 시작 ---'); // 디버깅용
-    console.log('email:', !!email.value); // 디버깅용
-    console.log('username:', !!username.value); // 디버깅용
-    console.log('password:', !!password.value); // 디버깅용
-    console.log('confirmPassword:', !!confirmPassword.value); // 디버깅용
-    console.log('password === confirmPassword:', password.value === confirmPassword.value); // 디버깅용
-    console.log('password length >= 6:', password.value.length >= 6); // 디버깅용
     const isValid = (
         email.value &&
         username.value &&
@@ -187,19 +155,14 @@ const isFormValid = computed(() => {
         password.value === confirmPassword.value &&
         password.value.length >= 6
     );
-    console.log('isFormValid 결과:', isValid); // 디버깅용
-    console.log('--- isFormValid 계산 종료 ---'); // 디버깅용
     return isValid;
 });
 
-// 회원가입 함수 (Firebase 연동)
 const signup = async () => {
-    console.log('--- signup 함수 호출됨 ---'); // 함수 진입 확인
-    console.log('현재 isFormValid 값:', isFormValid.value); // isFormValid 값 확인
+    console.log('--- signup 함수 호출됨 ---');
 
     if (!isFormValid.value) {
-        console.log('폼 유효성 검사 실패. 알림 메시지 표시.');
-        // 기본적인 폼 유효성 검사 메시지들
+        console.log('폼 유효성 검사 실패.');
         if (!email.value || !username.value || !password.value || !confirmPassword.value) {
             alert('필수 정보를 모두 입력해주세요.');
             return;
@@ -212,12 +175,11 @@ const signup = async () => {
              alert("비밀번호는 6자 이상이어야 합니다.");
              return;
          }
-        // 이 메시지는 위 조건에서 걸러지지 않은 경우에만 나타납니다.
         alert('폼 입력값을 다시 확인해주세요.');
         return;
     }
 
-    console.log('폼 유효성 검사 통과. Firebase 회원가입 시도.'); // Firebase 호출 전 확인
+    console.log('폼 유효성 검사 통과. userService.registerUserWithFirebase 호출.');
 
     try {
       const user = await registerUserWithFirebase(
@@ -227,17 +189,17 @@ const signup = async () => {
         selectedFile.value
       );
 
-      console.log("회원가입 최종 성공:", user);
-      alert("회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.");
-      router.push("/login");
+      if (user) {
+         console.log("회원가입 최종 성공:", user);
+         alert("회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.");
+         router.push("/login");
+      }
+
 
     } catch (error) {
       console.error("회원가입 처리 중 에러 발생 (signup catch):", error);
-      // registerUserWithFirebase 함수에서 에러를 이미 처리하고 alert를 띄웠을 것입니다.
-      // 필요하다면 여기서도 사용자에게 추가적인 에러 메시지 표시 가능.
-      // alert("회원가입 중 알 수 없는 오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
-        console.log('--- signup 함수 종료 ---'); // 함수 종료 확인 (성공/실패 무관)
+        console.log('--- signup 함수 종료 ---');
     }
 };
 </script>
@@ -266,7 +228,7 @@ const signup = async () => {
 
 .profile-avatar {
   width: 80px;
-  height: 80px;
+  height: 80px !important;
   margin-bottom: 40px;
   display: flex;
   justify-content: center;
@@ -276,7 +238,7 @@ const signup = async () => {
 
 .avatar-placeholder {
   width: 100%;
-  height: 100%;
+  height: 80px;
   border-radius: 50%;
   background: #ddd /*url(@/assets/images/common/ico_menu_user.svg)*/ no-repeat
     center center;
