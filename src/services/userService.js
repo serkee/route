@@ -3,7 +3,10 @@
 // 필요한 Firebase SDK 함수들을 import 합니다.
 import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'; // Auth 관련 함수
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'; // Storage 관련 함수
-// doc, setDoc, serverTimestamp는 Firestore 저장 로직 주석 처리로 필요 없음
+
+// --- Firestore 관련 함수 및 db 인스턴스 import ---
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore'; // doc, setDoc, serverTimestamp 함수
+import { db } from '@/firebase'; // Firestore db 인스턴스 (db는 @/firebase에서 가져옵니다)
 
 
 // Firebase 서비스 인스턴스 (auth, storage)는 @/firebase에서 import
@@ -18,7 +21,7 @@ import { useUserStore } from '@/store/user';
 let _resolveAuthReady;
 // 이 Promise는 onAuthStateChanged 리스너가 첫 번째 인증 상태를 파악했을 때 resolve됩니다.
 const authReadyPromise = new Promise(resolve => {
-  _resolveAuthReady = resolve;
+    _resolveAuthReady = resolve;
 });
 
 // onAuthStateChanged 리스너가 이미 설정되었는지 추적하는 플래그
@@ -67,13 +70,13 @@ const registerUserWithFirebase = async (email, password, username, avatarFile) =
         if (avatarFile) {
             console.log("[userService] 아바타 파일 업로드 로직 실행.");
             try {
-               photoURL = await uploadAvatar(user.uid, avatarFile);
+                photoURL = await uploadAvatar(user.uid, avatarFile);
             } catch (uploadError) {
                 console.error("[userService] registerUserWithFirebase 내에서 아바타 업로드 오류:", uploadError);
                 photoURL = null;
             }
         } else {
-             console.log("[userService] 아바타 파일 없음. 업로드 건너뜀.");
+            console.log("[userService] 아바타 파일 없음. 업로드 건너뜀.");
         }
 
         console.log("[userService] Firebase Auth 사용자 프로필 업데이트 시도 (displayName, photoURL)");
@@ -81,23 +84,26 @@ const registerUserWithFirebase = async (email, password, username, avatarFile) =
             displayName: username
         };
         if (photoURL) {
-             profileUpdates.photoURL = photoURL;
+            profileUpdates.photoURL = photoURL;
         }
 
         await updateProfile(user, profileUpdates);
-        console.log("[userService] Firebase Auth 사용자 프로필 업데이트 성공. displayName:", user.displayName, "photoURL:", user.photoURL);
-
-        // 4. (선택 사항) Firestore에 추가 사용자 정보 저장 (주석 처리)
-        /*
-        import { doc, setDoc, serverTimestamp, db } from 'firebase/firestore'; // 여기에 import
         console.log(`[userService] Firestore에 사용자 문서 저장 시도: users/${user.uid}`);
-        const userDocRef = doc(db, 'users', user.uid); // db 인스턴스 사용
+        const userDocRef = doc(db, 'users', user.uid);
         const userData = {
-            uid: user.uid, email: user.email, username: username, photoURL: photoURL, createdAt: serverTimestamp(),
+            uid: user.uid,
+            email: user.email,
+            username: username, // 또는 displayName
+            photoURL: photoURL, // Storage 업로드 후 가져온 photoURL
+            createdAt: serverTimestamp(), // 서버 타임스탬프 사용
         };
-        try { await setDoc(userDocRef, userData); console.log(`[userService] Firestore에 사용자 문서 저장 성공: users/${user.uid}`); }
-        catch (firestoreError) { console.error("[userService] Firestore 사용자 문서 저장 오류:", firestoreError); }
-        */
+        try {
+            await setDoc(userDocRef, userData);
+            console.log(`[userService] Firestore에 사용자 문서 저장 성공: users/${user.uid}`);
+        } catch (firestoreError) {
+            console.error("[userService] Firestore 사용자 문서 저장 오류:", firestoreError);
+            // 사용자에게 Firestore 저장 오류를 알리거나 로깅
+        }
 
         console.log("[userService] registerUserWithFirebase 전체 처리 완료. 사용자 객체 반환.");
         return user;
@@ -105,13 +111,13 @@ const registerUserWithFirebase = async (email, password, username, avatarFile) =
     } catch (error) {
         console.error("[userService] 회원가입 또는 프로필 처리 전체 오류 발생 (catch 블록):", error);
         let userFacingErrorMessage = "회원가입 중 오류가 발생했습니다.";
-         switch (error.code) {
-             case 'auth/email-already-in-use': userFacingErrorMessage = "이미 사용 중인 이메일 주소입니다."; break;
-             case 'auth/weak-password': userFacingErrorMessage = "비밀번호가 너무 짧거나 취약합니다. 6자 이상이어야 합니다."; break;
-             case 'auth/invalid-email': userFacingErrorMessage = "유효하지 않은 이메일 주소 형식입니다."; break;
-             case 'auth/operation-not-allowed': userFacingErrorMessage = "현재 이메일/비밀번호 회원가입이 비활성화되어 있습니다. Firebase 콘솔에서 활성화해주세요."; break;
-             default: console.error("알 수 없는 회원가입 오류 코드:", error.code, "오류 메시지:", error.message); userFacingErrorMessage = `회원가입 중 알 수 없는 오류가 발생했습니다: ${error.message}`;
-         }
+        switch (error.code) {
+            case 'auth/email-already-in-use': userFacingErrorMessage = "이미 사용 중인 이메일 주소입니다."; break;
+            case 'auth/weak-password': userFacingErrorMessage = "비밀번호가 너무 짧거나 취약합니다. 6자 이상이어야 합니다."; break;
+            case 'auth/invalid-email': userFacingErrorMessage = "유효하지 않은 이메일 주소 형식입니다."; break;
+            case 'auth/operation-not-allowed': userFacingErrorMessage = "현재 이메일/비밀번호 회원가입이 비활성화되어 있습니다. Firebase 콘솔에서 활성화해주세요."; break;
+            default: console.error("알 수 없는 회원가입 오류 코드:", error.code, "오류 메시지:", error.message); userFacingErrorMessage = `회원가입 중 알 수 없는 오류가 발생했습니다: ${error.message}`;
+        }
         alert(userFacingErrorMessage);
         throw error;
     }
@@ -164,8 +170,8 @@ const loginUser = async (email, password) => {
 
 // Firebase Authentication에서 로그아웃 함수
 const logoutUser = async () => {
-     console.log("[userService] logoutUser 시작.");
-     const userStore = useUserStore();
+    console.log("[userService] logoutUser 시작.");
+    const userStore = useUserStore();
     try {
         await signOut(auth);
         console.log("[userService] Firebase Auth 로그아웃 성공.");
@@ -197,9 +203,9 @@ const subscribeToAuthStateChanges = () => {
         if (user) {
             // 사용자가 로그인 상태인 경우 (페이지 새로고침, 로그인 등)
             userStore.setUser({
-                 uid: user.uid,
-                 name: user.displayName || user.email || '사용자',
-                 profileImageUrl: user.photoURL,
+                uid: user.uid,
+                name: user.displayName || user.email || '사용자',
+                profileImageUrl: user.photoURL,
             });
             console.log("[userService] 인증 리스너: 사용자 로그인 상태 확인 및 스토어 설정.");
         } else {
@@ -213,12 +219,12 @@ const subscribeToAuthStateChanges = () => {
         console.log("[userService] authReadyPromise resolved.");
         _resolveAuthReady(); // <--- 여기서 Promise를 resolve합니다.
 
-         // 참고: onAuthStateChanged는 이후 인증 상태 변화에 대해서도 계속 실행됩니다.
-         // 초기 상태 파악 후 리스너를 해제하고 싶다면 여기서 unsubscribe()를 호출해야 하지만,
-         // 로그인/로그아웃 상태 변화를 계속 감지하려면 해제하면 안 됩니다.
+        // 참고: onAuthStateChanged는 이후 인증 상태 변화에 대해서도 계속 실행됩니다.
+        // 초기 상태 파악 후 리스너를 해제하고 싶다면 여기서 unsubscribe()를 호출해야 하지만,
+        // 로그인/로그아웃 상태 변화를 계속 감지하려면 해제하면 안 됩니다.
     });
 
-     console.log("[userService] onAuthStateChanged 리스너 등록 완료."); // <--- 리스너 등록 완료 로그 추가
+    console.log("[userService] onAuthStateChanged 리스너 등록 완료."); // <--- 리스너 등록 완료 로그 추가
 };
 
 

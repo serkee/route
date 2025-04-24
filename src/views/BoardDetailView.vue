@@ -21,14 +21,18 @@
         <h2>{{ post.title }}</h2>
         <div class="post-content-info">
           <span class="profile">
-            <img src="/images/contents/@thumb.png" alt="" />
+            <img
+              v-if="post.authorProfileImageUrl"
+              :src="post.authorProfileImageUrl"
+              alt="작성자 프로필 이미지"
+              class="avatar-image"
+            />
           </span>
           <p class="name">{{ post.authorName || post.authorId }}</p>
           <p class="info">
             {{ formatDate(post.createdAt) }}
             <span>조회수 {{ post.views }}</span>
           </p>
-          <p></p>
         </div>
       </div>
       <div class="content-body">
@@ -171,7 +175,7 @@
                   {{ reply.text }}
                 </div>
 
-                
+
               </div>
             </div>
           </div>
@@ -215,15 +219,16 @@ import {
   updateComment, // <-- 댓글 수정 함수 import (boardService에 구현 필요)
 } from "@/services/boardService";
 
-// Firestore SDK 함수 import (조회수 업데이트 및 댓글 실시간 리스닝에 필요)
+// Firestore SDK 함수 import (조회수 업데이트 및 댓글 실시간 리스닝, 사용자 정보 조회에 필요)
 import {
   collection,
   query,
   orderBy,
   onSnapshot,
-  doc,
+  doc, // Import doc for document reference
   updateDoc,
   increment,
+  getDoc, // Import getDoc to fetch a single document
 } from "firebase/firestore";
 // @/firebase 에서 db 인스턴스 import
 import { db } from "@/firebase";
@@ -273,43 +278,79 @@ const goToCategoryList = () => {
   }
 };
 
-// 게시글 데이터 가져오는 함수 (boardService 사용)
+// 게시글 데이터 가져오는 함수 (boardService 사용 및 작성자 프로필 이미지 추가)
 const fetchPost = async () => {
   loading.value = true;
   try {
     const fetchedPost = await getPostById(postId);
-    post.value = fetchedPost;
 
-    // *** 게시글 조회수 증가 로직 추가 ***
-    // 게시글 정보를 성공적으로 가져온 후 조회수를 증가시킵니다.
-    if (post.value) {
+    if (fetchedPost) {
+      post.value = fetchedPost;
+
+      // ### 작성자 프로필 이미지 URL 가져오기 ###
+      // 게시글 데이터에 authorId가 있다면 사용자 정보 가져오기 시도
+      if (post.value.authorId) {
+        try {
+          // 'users' 컬렉션에서 게시글 작성자의 UID와 동일한 문서 참조 가져오기
+          const userDocRef = doc(db, 'users', post.value.authorId);
+          // 해당 사용자 문서 가져오기
+          const userDocSnap = await getDoc(userDocRef);
+
+          // 사용자 문서가 존재하고 데이터가 있다면 photoURL 가져오기
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            // 가져온 사용자 데이터에서 photoURL 필드를 게시글 객체에 추가 (템플릿에서 사용)
+            post.value.authorProfileImageUrl = userData.photoURL;
+            console.log("작성자 프로필 이미지 URL 가져옴:", post.value.authorProfileImageUrl);
+          } else {
+            // 사용자 문서를 찾을 수 없는 경우 경고 로깅
+            console.warn(`작성자 사용자 문서 (ID: ${post.value.authorId})를 찾을 수 없습니다.`);
+            post.value.authorProfileImageUrl = null; // URL을 null로 설정하여 이미지 숨김
+          }
+        } catch (userFetchError) {
+          // 사용자 데이터 가져오기 오류 발생 시 로깅
+          console.error(`작성자 데이터 (ID: ${post.value.authorId}) 가져오기 오류:`, userFetchError);
+           post.value.authorProfileImageUrl = null; // 오류 발생 시 URL을 null로 설정
+        }
+      } else {
+           // 게시글에 작성자 ID가 없는 경우 경고 로깅
+           console.warn("게시글 작성자 ID가 없습니다.");
+           post.value.authorProfileImageUrl = null; // URL을 null로 설정
+      }
+
+      // *** 게시글 조회수 증가 로직 ***
+      // 게시글 정보를 성공적으로 가져온 후에만 조회수 증가 시도
       const postRef = doc(db, "posts", postId); // 해당 게시글 문서 참조 가져오기
       try {
         // updateDoc과 increment 함수를 사용하여 views 필드를 원자적으로 1 증가
         await updateDoc(postRef, {
-          views: increment(1), // increment 함수는 여기서 사용됩니다.
+          views: increment(1),
         });
         console.log(`게시글 ${postId} 조회수 1 증가 완료.`);
-        // views 필드가 실시간으로 업데이트되므로 화면에도 곧 반영됩니다.
-        // post.value.views 값을 클라이언트 측에서 즉시 업데이트할 수도 있습니다.
-        // if(post.value.views !== undefined) {
-        //   post.value.views++; // 화면 표시 값을 즉시 증가 (선택 사항)
-        // } else {
-        //   post.value.views = 1; // views 필드가 없었다면 1로 초기화 (선택 사항)
-        // }
+        // 화면에 즉시 반영하려면 post.value.views 값을 클라이언트 측에서 증가
+         if(post.value.views !== undefined) {
+           post.value.views++; // 화면 표시 값을 즉시 증가 (선택 사항)
+         } else {
+           post.value.views = 1; // views 필드가 없었다면 1로 초기화 (선택 사항)
+         }
+
       } catch (updateError) {
         console.error("조회수 업데이트 오류:", updateError);
-        // 조회수 업데이트 오류는 사용자에게 치명적이지 않으므로 alert는 보통 하지 않습니다.
       }
+    } else {
+       // getPostById로 게시글을 찾을 수 없는 경우
+       console.warn(`게시글 ID ${postId}를 찾을 수 없습니다.`);
+       post.value = null; // 게시글 없음 상태로 설정
     }
+
   } catch (error) {
     console.error("게시글 가져오기 오류:", error);
-    // 오류 처리 로직
-    post.value = null; // 게시글 없음 상태로 설정
+    post.value = null; // 오류 발생 시 게시글 없음 상태로 설정
   } finally {
-    loading.value = false;
+    loading.value = false; // 로딩 상태 해제
   }
 };
+
 
 // 특정 게시글의 댓글 목록을 실시간으로 가져오는 함수 (답글 관계 처리)
 const listenForComments = (postId) => {
@@ -317,8 +358,6 @@ const listenForComments = (postId) => {
   const commentsCollectionRef = collection(db, "posts", postId, "comments");
 
   // 쿼리: createdAt 기준 오름차순 정렬
-  // 답글도 동일한 컬렉션에 저장되고 createdAt으로 정렬하여 가져온 후,
-  // 클라이언트 측에서 parentId를 보고 관계를 구성합니다.
   const q = query(commentsCollectionRef, orderBy("createdAt", "asc"));
 
   unsubscribeComments = onSnapshot(
@@ -344,8 +383,9 @@ const listenForComments = (postId) => {
           if (parent) {
             // 부모 댓글을 찾으면 부모의 replies 배열에 추가
             parent.replies.push(comment);
-            // 답글들은 부모 댓글의 replies 배열 안에서 다시 createdAt 순으로 정렬 (선택 사항)
-            // parent.replies.sort((a, b) => a.createdAt.toDate() - b.createdAt.toDate());
+             // 답글들은 부모 댓글의 replies 배열 안에서 다시 createdAt 순으로 정렬 (선택 사항)
+             // const sortFn = (a, b) => (typeof a.createdAt.toDate === 'function' ? a.createdAt.toDate().getTime() : new Date(a.createdAt).getTime()) - (typeof b.createdAt.toDate === 'function' ? b.createdAt.toDate().getTime() : new Date(b.createdAt).getTime());
+             // parent.replies.sort(sortFn);
           } else {
             // 부모 댓글을 찾을 수 없는 답글 (예: 부모 댓글이 삭제된 경우)
             console.warn(
@@ -409,8 +449,8 @@ const addComment = async () => {
 
     console.log("댓글/답글 작성 요청:", commentData);
 
-    // boardService의 addCommentToPost 함수 호출
-    // addCommentToPost 함수는 댓글 문서 추가와 commentCount 증가 로직을 포함
+    // boardService의 addCommentToPost 함수 호출 (게시글 ID, 댓글 데이터, 현재 사용자 정보 전달)
+    // addCommentToPost 함수는 댓글 문서 추가와 commentCount 증가 로직을 포함 (boardService에 구현 필요)
     await addCommentToPost(postId, commentData, currentUser.value); // currentUser 전달 필요
 
     newCommentText.value = ""; // 입력 필드 초기화
@@ -474,7 +514,7 @@ const saveEditedComment = async () => {
     console.log(
       `댓글 ${commentIdToEdit} 수정 내용 저장 시도. 새로운 내용: "${updatedText}"`
     );
-    // boardService의 updateComment 함수 호출 (댓글 ID와 수정된 내용 전달)
+    // boardService의 updateComment 함수 호출 (게시글 ID, 댓글 ID, 수정된 내용 전달)
     await updateComment(postId, commentIdToEdit, updatedText); // <-- boardService에서 구현 필요
 
     console.log(`댓글 ${commentIdToEdit} 수정 완료.`);
@@ -574,7 +614,7 @@ onMounted(async () => {
 
   if (postId) {
     console.log(`BoardDetailView: 게시글 ID ${postId} 감지됨.`);
-    await fetchPost(); // 게시글 상세 정보 가져오기
+    await fetchPost(); // 게시글 상세 정보 가져오기 (작성자 프로필 이미지 포함)
     listenForComments(postId); // 댓글 목록 실시간 리스닝 시작
   } else {
     console.error("게시글 ID가 라우트 파라미터에 없습니다.");
@@ -597,80 +637,96 @@ onUnmounted(() => {
 .container {
   padding-left: 0;
   padding-right: 0;
+  /* 기존 styles 유지 */
 }
 .header {
   display: flex;
   align-items: center;
-  padding: 0 10px; /* 헤더 좌우 패딩 */
-  height: 50px; /* 헤더 높이 */
+  padding: 0 10px;
+  height: 50px;
   border-bottom: 1px solid #eee;
   background-color: #fff;
+  /* 기존 styles 유지 */
 }
 .header__left .back-button {
-  width: 50px; /* 버튼 영역 확보 */
-  height: 50px; /* 버튼 영역 확보 */
+  width: 50px;
+  height: 50px;
   text-indent: -9999px;
   background: url(@/assets/images/common/ico_back.svg) no-repeat center center;
   background-size: 24px auto;
   border: 0;
   cursor: pointer;
+  /* 기존 styles 유지 */
 }
 .header h1 {
-  flex-grow: 1; /* 제목이 남은 공간 차지 */
+  flex-grow: 1;
   text-align: center;
-  font-size: 18px; /* 제목 폰트 크기 */
-  margin: 0; /* 제목 기본 마진 제거 */
+  font-size: 18px;
+  margin: 0;
+  /* 기존 styles 유지 */
 }
 .header__right {
-  width: 50px; /* 우측 더미 공간 확보 (삭제 버튼 자리) */
+  width: 50px;
+  /* 기존 styles 유지 */
 }
 
 /* 게시글 내용 영역 스타일 */
 .post-content {
-  text-align: left; /* 본문 정렬 */
+  text-align: left;
   width: 100%;
-  padding-bottom: 20px; /* 하단 여백 추가 */
+  padding-bottom: 20px;
+  /* 기존 styles 유지 */
 }
 
 .post-content-head {
-  padding: 15px 20px 10px 20px; /* 상하좌우 패딩 */
+  padding: 15px 20px 10px 20px;
   font-size: 22px;
   margin-bottom: 10px;
   border-bottom: 1px solid #eee;
-  /* padding-bottom: 10px; 이미 위에서 설정 */
+  /* 기존 styles 유지 */
 }
 .post-content-head-cate {
   display: inline-block;
-  margin-bottom: 8px;
+  margin-bottom: 14px;
   font-size: 14px;
   text-decoration: none;
   color: #005fec;
+  /* 기존 styles 유지 */
 }
 .post-content-head > h2 {
-  padding-bottom: 18px; /* 제목 아래 패딩 */
+  padding-bottom: 18px;
   font-size: 24px;
-  margin: 0; /* h2 기본 마진 제거 */
+  margin: 0;
+  /* 기존 styles 유지 */
 }
 
 /* 작성자 정보 스타일 */
 .post-content-info {
   position: relative;
   padding-left: 50px; /* 프로필 이미지 공간 확보 */
-  gap: 15px; /* 항목 간 간격 */
+  /* gap: 15px; 제거 */
+  display: flex; /* 이름과 정보가 프로필 이미지 옆에 오도록 flexbox 사용 */
+  flex-direction: column; /* 이름과 정보는 세로로 쌓이도록 */
+  justify-content: center; /* 세로 중앙 정렬 */
+  /* 기존 styles 유지 */
 }
+
+/* 프로필 이미지 컨테이너 (span.profile) 스타일 */
 .post-content-info .profile {
-  width: 40px;
-  height: 40px;
-  border-radius: 100%;
+  width: 40px; /* 아바타 컨테이너 크기 */
+  height: 40px; /* 아바타 컨테이너 크기 */
+  border-radius: 100%; /* 원형 */
   overflow: hidden;
-  display: block;
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  left: 0;
+  display: block; /* 블록 요소로 */
+  position: absolute; /* post-content-info 기준으로 위치 설정 */
+  top: 50%; /* 상단 50% 위치 */
+  transform: translateY(-50%); /* 세로 중앙 정렬 */
+  left: 0; /* 왼쪽 정렬 */
   background: #ededed; /* 기본 배경색 */
+  /* 기존 styles 유지 */
 }
-/* 기본 프로필 아이콘 스타일 */
+
+/* 기본 프로필 아이콘 (이미지 없을 때 표시) 스타일 */
 .post-content-info .profile:before {
   content: "";
   display: block;
@@ -680,34 +736,45 @@ onUnmounted(() => {
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  background: #cbcbcb; /* 아이콘 색상 */
-  /* mask-image 경로 확인 */
+  background: #cbcbcb;
   -webkit-mask-image: url(@/assets/images/common/ico_menu_user.svg);
   mask-image: url(@/assets/images/common/ico_menu_user.svg);
   -webkit-mask-size: cover;
   mask-size: cover;
+  /* 기존 styles 유지 */
 }
-.post-content-info .profile > img {
+
+/* 업로드된 프로필 이미지 (img.avatar-image) 스타일 */
+.post-content-info .profile .avatar-image {
+  display: block;
   width: 100%;
   height: 100%;
-  position: relative;
-  z-index: 2; /* 이미지 위에 표시 */
-  object-fit: cover; /* 이미지를 채우도록 */
+  object-fit: cover; /* 비율 유지하며 컨테이너 꽉 채우기 (필요 시 잘림) */
+  border-radius: 50%; /* 이미지를 원형으로 만듦 */
+  position: relative; /* 필요 시 z-index 등 사용 */
+  z-index: 2; /* 이미지가 ::before 아이콘 위에 오도록 */
+  /* 기존 styles 유지 */
 }
+
+/* 작성자 이름 스타일 */
 .post-content-info .name {
   font-size: 15px;
   font-weight: 500;
   color: #222;
-  margin: 0; /* 기본 마진 제거 */
+  margin: 0;
+  /* 기존 styles 유지 */
 }
+/* 작성 시간 및 조회수 정보 스타일 */
 .post-content-info .info {
-  font-size: 13px; /* 정보 폰트 크기 조정 */
+  font-size: 13px;
   color: #888;
-  margin: 5px 0 0 0; /* 기본 마진 제거 */
+  margin: 5px 0 0 0;
+  /* 기존 styles 유지 */
 }
 .post-content-info .info > span {
   display: inline-block;
   margin-left: 15px;
+  /* 기존 styles 유지 */
 }
 
 /* 게시글 본문 스타일 */
@@ -715,28 +782,32 @@ onUnmounted(() => {
   margin-top: 20px;
   font-size: 16px;
   line-height: 1.6;
-  white-space: pre-wrap; /* 줄바꿈 및 공백 유지 */
-  word-break: break-word; /* 긴 단어 자동 줄바꿈 */
-  padding: 0 20px; /* 좌우 패딩 */
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 0 20px;
+  /* 기존 styles 유지 */
 }
 .content-body .img {
   text-align: center;
-  margin-bottom: 20px; /* 이미지 아래 여백 */
+  margin-bottom: 20px;
+  /* 기존 styles 유지 */
 }
 .content-body .img > img {
-  max-width: 100%; /* 이미지가 컨테이너 넘지 않도록 */
-  height: auto; /* 높이 자동 */
-  display: block; /* 이미지 하단 미세 여백 제거 */
-  margin: 0 auto; /* 가운데 정렬 */
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  /* 기존 styles 유지 */
 }
 
 /* 작성자에게 보이는 수정/삭제 버튼 스타일 */
 .post-actions {
   display: flex;
-  justify-content: flex-end; /* 버튼을 오른쪽으로 정렬 */
-  gap: 10px; /* 버튼 사이 간격 */
-  padding: 40px 20px; /* 상하좌우 패딩 */
-  border-bottom: 1px solid #eee; /* 하단 구분선 */
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 40px 20px;
+  border-bottom: 1px solid #eee;
+  /* 기존 styles 유지 */
 }
 .post-actions button {
   padding: 8px 15px;
@@ -744,22 +815,24 @@ onUnmounted(() => {
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
-  flex: 1;
+  flex: 1; /* flex: 1을 주면 아이템들이 컨테이너 너비를 균등하게 나눕니다. 필요에 따라 조절하세요. */
 }
 .post-actions .edit-button {
   background-color: #fff;
   border:1px solid #e1e1e1;
+  /* 기존 styles 유지 */
 }
 .post-actions .delete-button {
-  background-color: #a7a7a7; /* 빨간색 */
-  color: white;
+  background-color: #a7a7a7; /* 배경색 */
+  color: white; /* 글자색 */
+  /* 기존 styles 유지 */
 }
 
 /* 댓글 섹션 스타일 */
 .comments-section {
-  margin-top: 30px; /* 게시글 내용과의 간격 */
-  /* border-top: 1px solid #eee; */ /* post-actions 아래에 이미 선 있음 */
-  padding: 0 20px 0 20px; /* 좌우 패딩 */
+  margin-top: 30px;
+  padding: 0 20px 0 20px;
+  /* 기존 styles 유지 */
 }
 
 .comments-section h3 {
@@ -767,30 +840,32 @@ onUnmounted(() => {
   margin-bottom: 15px;
   padding-bottom: 10px;
   border-bottom: 1px solid #eee;
-  margin-top: 0; /* h3 기본 마진 제거 */
+  margin-top: 0;
+  /* 기존 styles 유지 */
 }
 
 .comment-list {
   margin-top: 15px;
+  /* 기존 styles 유지 */
 }
 
 .comment-item {
   border-bottom: 1px solid #eee;
   padding-bottom: 9px;
-  margin-bottom: 15px; /* 다음 댓글 항목과의 간격 */
+  margin-bottom: 15px;
+  /* 기존 styles 유지 */
 }
 
 .comment-item.is-reply {
   padding: 15px;
   background-color: #f9f9f9;
-  border-radius: 0 7px 7px 0;
+  border-radius: 5px; /* 하단 보더 제거 및 전체 테두리 약간 둥글게 */
   border-bottom: 0;
-  margin-bottom: 0;
-  margin-top: 5px;
-  border-radius: 5p;
+  margin-bottom: 0; /* 부모 댓글과의 간격 제거 */
+  margin-top: 5px; /* 부모 댓글 본문과의 간격 */
 }
 .comment-item.is-reply .comment-text{
-  margin-bottom: 0;
+  margin-bottom: 0; /* 답글 텍스트 하단 마진 제거 */
 }
 .comment-author {
   font-weight: bold;
@@ -800,29 +875,33 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
+  /* 기존 styles 유지 */
 }
 
 .comment-text {
   margin-bottom: 8px;
   line-height: 1.5;
   color: #555;
-  white-space: pre-wrap; /* 줄바꿈 및 공백 유지 */
-  word-break: break-word; /* 긴 단어 자동 줄바꿈 */
+  white-space: pre-wrap;
+  word-break: break-word;
   margin-top: 7px;
+  /* 기존 styles 유지 */
 }
 
 .comment-info {
   font-size: 12px;
   color: #888;
   text-align: right;
-  display: flex; /* 정보를 가로로 배치 */
-  justify-content: flex-end; /* 오른쪽 정렬 */
-  gap: 5px; /* 항목 간 간격 */
-  align-items: center; /* 세로 중앙 정렬 */
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+  align-items: center;
+  /* 기존 styles 유지 */
 }
 .comment-info > span:first-child {
   margin-right: 10px;
   font-weight: normal;
+  /* 기존 styles 유지 */
 }
 /* 답글 달기, 수정, 삭제 버튼 공통 스타일 */
 .comment-info .action-button {
@@ -834,22 +913,26 @@ onUnmounted(() => {
   border-radius: 4px;
   color: #555;
   transition: all 0.2s ease;
+  /* 기존 styles 유지 */
 }
 .comment-info .action-button:hover {
   background-color: #eee;
+  /* 기존 styles 유지 */
 }
 
 /* 답글 버튼 */
 .comment-info .reply-button {
-  /* 위 .action-button 스타일 상속 */
+  /* 기존 styles 유지 */
 }
 /* 수정 버튼 */
 .comment-info .edit-comment-button {
   color: rgb(19, 177, 56);
+  /* 기존 styles 유지 */
 }
 /* 삭제 버튼 */
 .comment-info .delete-comment-button {
   color: #c82333;
+  /* 기존 styles 유지 */
 }
 
 .no-comments-message {
@@ -858,27 +941,30 @@ onUnmounted(() => {
   font-style: italic;
   padding: 20px 0;
   border-bottom: 1px solid #eee;
+  /* 기존 styles 유지 */
 }
 
 .login-prompt {
   margin-top: 15px;
   font-style: italic;
   color: #777;
+  /* 기존 styles 유지 */
 }
 
 /* 댓글/답글 입력 폼 (최상위, 답글, 수정 공통) */
 .add-comment-form,
 .edit-comment-form {
-  /* <-- edit-comment-form 추가 */
   margin-top: 15px;
   display: flex;
-  gap: 10px; /* 입력 필드와 버튼 그룹 사이 간격 */
-  padding-bottom: 20px; /* 하단 여백 추가 */
-  border-bottom: 1px solid #eee; /* 아래 구분선 */
+  gap: 10px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
+  flex-direction: column; /* 세로 배열 */
+  /* 기존 styles 유지 */
 }
+
 .add-comment-form textarea,
 .edit-comment-form textarea {
-  /* <-- textarea 선택자 추가 */
   flex-grow: 1;
   padding: 10px;
   border: 1px solid #ccc;
@@ -887,18 +973,22 @@ onUnmounted(() => {
   min-height: 60px;
   box-sizing: border-box;
   font-size: 14px;
+  width: 100%; /* 너비 100% */
+  /* 기존 styles 유지 */
 }
+
 /* 입력 폼 액션 (버튼 그룹) */
 .add-comment-form .form-actions,
 .edit-comment-form .form-actions {
-  /* <-- .form-actions 선택자 추가 */
   display: flex;
-  justify-content: flex-end; /* 버튼을 오른쪽으로 정렬 */
-  gap: 10px; /* 버튼 사이 간격 */
+  justify-content: flex-end;
+  gap: 10px;
+  width: 100%; /* 너비 100% */
+  /* 기존 styles 유지 */
 }
+
 .add-comment-form button,
 .edit-comment-form button {
-  /* <-- button 선택자 추가 */
   padding: 8px 15px;
   border: none;
   border-radius: 4px;
@@ -906,45 +996,47 @@ onUnmounted(() => {
   font-size: 14px;
   color: #fff;
   background: #357ae8;
+  /* 기존 styles 유지 */
 }
+
 .add-comment-form button:first-child,
 .edit-comment-form button:first-child {
-  /* 작성/답글/저장 버튼 */
   background-color: #007bff;
   color: white;
+  /* 기존 styles 유지 */
 }
 .add-comment-form .cancel-button,
 .edit-comment-form .cancel-button {
-  /* 취소 버튼 */
   background-color: #ddd;
   color: #333;
+  /* 기존 styles 유지 */
 }
 
 /* 답글 입력/수정 폼 (nested) 스타일 */
 .add-comment-form.nested,
 .edit-comment-form.nested {
-  /* <-- .edit-comment-form.nested 추가 */
   margin-top: 10px;
   padding: 15px;
   background-color: #eef7ff;
   border: 0;
   border-radius: 7px;
+  /* 기존 styles 유지 */
 }
 
-/* 답글 목록 (nested) 스타일 - 이 부분은 comment-item.is-reply 의 padding-left로 대체될 수 있음 */
-/* .replies-list {
-    margin-top: 10px;
-    padding: 0 0 0 10px;
-} */
+/* 답글 목록 (nested) 스타일 */
+.replies-list {
+    margin-top: 10px; /* 부모 댓글과의 간격 */
+    padding-left: 20px; /* 들여쓰기 */
+}
 
-/* 답글 항목 스타일 */
-/* .comment-item.is-reply 스타일은 위에 통합 */
+/* 답글 항목 스타일 (comment-item.is-reply)는 위에 정의되어 있습니다. */
 
 /* 답글 표시 화살표 */
 .reply-indicator {
   margin-right: 5px;
   font-weight: bold;
   color: #007bff;
+  /* 기존 styles 유지 */
 }
 
 /* 로딩 및 찾을 수 없음 메시지 스타일 */
@@ -954,5 +1046,6 @@ onUnmounted(() => {
   font-size: 18px;
   color: #777;
   margin-top: 50px;
+  /* 기존 styles 유지 */
 }
 </style>

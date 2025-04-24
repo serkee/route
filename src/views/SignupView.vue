@@ -87,7 +87,7 @@
         />
       </div>
       <div class="bottom-container">
-        
+
         <button type="submit" class="green-button" :disabled="!isFormValid">
           회원가입
         </button>
@@ -100,7 +100,9 @@
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 
-import { registerUserWithFirebase } from "@/services/userService";
+// Import both registerUserWithFirebase and logoutUser from userService
+import { registerUserWithFirebase, logoutUser } from "@/services/userService"; // <-- logoutUser 함수 import
+
 
 const username = ref("");
 const email = ref("");
@@ -182,29 +184,57 @@ const signup = async () => {
     console.log('폼 유효성 검사 통과. userService.registerUserWithFirebase 호출.');
 
     try {
+      // registerUserWithFirebase 함수는 내부적으로 Firebase Authentication에 계정을 생성합니다.
+      // 계정 생성 성공 시 Firebase Auth에 자동 로그인 상태가 됩니다.
       const user = await registerUserWithFirebase(
         email.value,
         password.value,
         username.value,
-        selectedFile.value
+        selectedFile.value // selectedFile.value가 그대로 전달됨 (Storage 업로드 로직은 userService에 있을 것으로 가정)
       );
 
       if (user) {
          console.log("회원가입 최종 성공:", user);
-         alert("회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.");
-         router.push("/login");
-      }
 
+         // 1. 회원가입 완료 알림 표시
+         alert("회원가입이 완료되었습니다. 초기 화면으로 이동합니다."); // <-- 알림 메시지 변경
+
+         // 2. 방금 생성된 사용자를 로그아웃 상태로 만듭니다.
+         // registerUserWithFirebase 성공 후 Firebase Auth에는 로그인 상태이므로 명시적으로 로그아웃 호출
+         console.log("회원가입 후 자동 로그인 상태 해제 시도...");
+         await logoutUser(); // <-- userService에서 import한 logoutUser 함수 호출 및 완료 대기
+
+         console.log("로그아웃 완료. 초기 화면(/)으로 이동.");
+
+         // 3. SplashView (/)로 이동
+         router.push("/"); // <-- / 경로로 라우팅
+
+      } else {
+         // registerUserWithFirebase 함수가 null을 반환하거나 오류를 던지지 않은 경우 처리
+          console.warn("registerUserWithFirebase 함수가 사용자 객체를 반환하지 않았습니다.");
+           alert("회원가입 처리에 문제가 발생했습니다."); // 일반 오류 메시지
+      }
 
     } catch (error) {
       console.error("회원가입 처리 중 에러 발생 (signup catch):", error);
+       // Firebase Auth 오류 등 구체적인 오류 메시지 처리는 userService에서 이미 할 수 있습니다.
+       // 여기서는 발생한 에러를 로깅하고 일반적인 오류 메시지를 보여줍니다.
+       let errorMessage = "회원가입 중 오류가 발생했습니다.";
+        if (error && error.message) {
+            // error 객체에 메시지가 있다면 추가 정보를 포함
+            errorMessage += `: ${error.message}`;
+        }
+       alert(errorMessage); // 사용자에게 오류 알림
+
     } finally {
         console.log('--- signup 함수 종료 ---');
+        // 비동기 작업 중 로딩 표시가 필요하다면 isSubmitting 상태를 관리하고 여기서 해제
     }
 };
 </script>
 
 <style scoped>
+/* 기존 스타일 유지 */
 .signup-view {
   display: flex;
   flex-direction: column;
@@ -224,6 +254,7 @@ const signup = async () => {
   line-height: 1.3;
   letter-spacing: -0.05em;
   box-sizing: border-box; /* 패딩 포함 너비 계산 */
+  width: calc(100% + 40px);
 }
 
 .profile-avatar {
@@ -321,5 +352,49 @@ const signup = async () => {
 }
 .error-message {
   color: #dc3545;
+}
+
+.form-group label {
+    display: block; /* Labels on their own line */
+    margin-bottom: 8px; /* Space between label and input */
+    font-weight: bold;
+    color: #555;
+    font-size: 14px;
+}
+
+.form-group input[type="email"],
+.form-group input[type="text"],
+.form-group input[type="password"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box; /* Include padding and border in element's total width and height */
+    font-size: 14px;
+}
+
+/* Style for the main submit button */
+.green-button {
+  display: block; /* Make button full width */
+  width: 100%;
+  padding: 15px; /* Larger padding for a prominent button */
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
+  background-color: #4caf50; /* Green background */
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center; /* Center text inside button */
+  transition: background-color 0.3s ease; /* Smooth hover effect */
+}
+
+.green-button:hover:not(:disabled) {
+    background-color: #45a049; /* Darker green on hover */
+}
+
+.green-button:disabled {
+    background-color: #ccc; /* Grey when disabled */
+    cursor: not-allowed;
 }
 </style>
