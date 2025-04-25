@@ -1,42 +1,62 @@
 // src/main.js
-import { createApp } from 'vue';
-import App from './App.vue';
-import router from './router'; // 라우터 인스턴스 import
-import { createPinia } from 'pinia'; // Pinia import
-import '@/firebase'; // Firebase 초기화 (auth 인스턴스 등을 설정)
-// userService에서 인증 상태 준비 Promise와 리스너 설정 함수 import
-import { authReadyPromise, subscribeToAuthStateChanges } from '@/services/userService';
-
-
-// 전역 스타일 import
 import '@/assets/css/reset.css';
+import { createApp } from 'vue';
+import { createPinia } from 'pinia';
+import App from './App.vue';
+import router from './router';
+// userService에서 필요한 함수/객체를 subscribeToAuthStateChanges 대신 임포트합니다.
+// import * as userService from './services/userService'; // <-- 이 임포트는 더 이상 필요하지 않습니다.
+import { useUserStore } from './store/user'; // user 스토어 임포트
 
+// Firebase Auth 상태를 직접 확인하는 경우에만 getAuth가 필요할 수 있습니다.
+// 라우터 가드에서 getAuth를 사용하므로 여기서는 제거 가능합니다.
+// import { getAuth } from 'firebase/auth';
+
+
+console.log("[main.js] --- 앱 초기화 시작 ---");
 
 const app = createApp(App);
-const pinia = createPinia(); // Pinia 인스턴스 생성
+const pinia = createPinia();
 
-app.use(pinia); // Pinia 사용
-app.use(router); // 라우터 사용
+app.use(pinia);
+app.use(router);
 
-console.log("[main.js] --- 앱 초기화 시작 ---"); // <--- 이 로그를 추가합니다.
+// user 스토어 사용
+const userStore = useUserStore();
 
-subscribeToAuthStateChanges(); // 인증 상태 리스너 설정 함수 호출
+// Subscribe to auth state changes and sync with userStore - 이 로직은 userStore.js의 onAuthStateChanged 리스너가 처리합니다.
+// 따라서 여기서 subscribeToAuthStateChanges() 함수를 호출할 필요가 없습니다.
+// userService.subscribeToAuthStateChanges(); // <-- 이 줄을 삭제합니다.
 
-console.log("[main.js] 라우터 및 인증 상태 준비 대기 시작."); // <--- 이 로그를 추가합니다.
+// 초기 Firebase Auth 상태가 준비될 때까지 기다린 후 앱을 마운트합니다.
+// userStore의 authReadyPromise를 기다립니다.
+async function initializeApp() {
+  console.log("[main.js] 라우터 및 인증 상태 준비 대기 시작.");
 
-// 라우터가 준비될 때까지 기다리고,
-// Firebase 인증 상태가 파악되어 Pinia 스토어에 반영될 때까지 기다린 후
-// 애플리케이션을 마운트합니다.
-Promise.all([router.isReady(), authReadyPromise])
-  .then(() => {
-    console.log("[main.js] Promise.all 완료. 라우터와 Firebase Auth 상태가 모두 준비되었습니다."); // <--- 이 로그를 추가합니다.
-    console.log("[main.js] 앱을 마운트합니다."); // <--- 이 로그를 추가합니다.
-    app.mount('#app'); // 모든 준비가 완료된 후 앱 마운트
-  })
-  .catch(error => {
-    console.error("[main.js] 라우터 또는 인증 상태 대기 중 오류 발생:", error); // <--- 이 로그를 추가합니다.
-    // 오류 발생 시 사용자에게 메시지를 보여주는 등의 오류 처리 로직 추가
-    // 예: document.getElementById('app').innerHTML = '앱 로딩 중 오류 발생';
-  });
+  try {
+    // userStore가 초기 인증 상태를 파악할 때까지 기다립니다.
+    // 이 promise는 userStore.js의 onAuthStateChanged 리스너에 의해 resolve됩니다.
+    await userStore.authReadyPromise;
 
-console.log("[main.js] --- 앱 초기화 코드 끝 ---"); // <--- 이 로그를 추가합니다
+    console.log("[main.js] Promise.all 완료. 라우터와 Firebase Auth 상태가 모두 준비되었습니다.");
+
+    // 모든 준비가 끝나면 앱을 마운트합니다.
+    app.mount('#app');
+    console.log("[main.js] 앱을 마운트합니다.");
+
+  } catch (error) {
+    console.error("[main.js] 앱 초기화 중 오류 발생:", error);
+    // 초기화 오류 처리 (예: Firebase 연결 문제)
+  }
+}
+
+// 비동기 초기화 함수 호출
+initializeApp();
+
+
+console.log("[main.js] --- 앱 초기화 코드 끝 ---");
+
+// 참고:
+// userStore.js의 onAuthStateChanged 리스너가 인증 상태를 감지하고 스토어 상태를 동기화합니다.
+// 라우터 가드 (router.beforeEach)가 userStore.authReadyPromise를 사용하여 네비게이션이 상태를 기다리도록 합니다.
+// 따라서 main.js에서는 별도의 구독 함수 호출이 필요 없습니다.

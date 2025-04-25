@@ -2,7 +2,7 @@
   <div class="container">
     <div class="header">
       <div class="header__left">
-        <button class="back-button" @click="goBack">←</button>
+        <button class="home-button" @click="router.push('/')">←</button>
       </div>
       <h1>회원가입</h1>
       <div class="header__right"></div>
@@ -100,8 +100,8 @@
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 
-// Import both registerUserWithFirebase and logoutUser from userService
-import { registerUserWithFirebase, logoutUser } from "@/services/userService"; // <-- logoutUser 함수 import
+// userService에서 signupUser와 logoutUser를 올바르게 임포트
+import { signupUser, logoutUser } from "@/services/userService";
 
 
 const username = ref("");
@@ -116,120 +116,116 @@ const selectedFile = ref(null);
 
 
 onMounted(() => {
-  username.value = "";
-  email.value = "";
-  password.value = "";
-  confirmPassword.value = "";
-  avatarPreview.value = "";
-  selectedFile.value = null;
+ username.value = "";
+ email.value = "";
+ password.value = "";
+ confirmPassword.value = "";
+ avatarPreview.value = "";
+ selectedFile.value = null;
 });
 
-const goBack = () => {
-  router.go(-1);
-};
-
 const triggerFileInput = () => {
-  fileInput.value.click();
+ fileInput.value.click();
 };
 
 const handleFileSelect = (event) => {
-  const file = event.target.files[0];
-  if (file) {
-    selectedFile.value = file;
+ const file = event.target.files[0];
+ if (file) {
+  selectedFile.value = file;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      avatarPreview.value = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  } else {
-    selectedFile.value = null;
-    avatarPreview.value = "";
-  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+   avatarPreview.value = e.target.result;
+  };
+  reader.readAsDataURL(file);
+ } else {
+  selectedFile.value = null;
+  avatarPreview.value = "";
+ }
 };
 
 const isFormValid = computed(() => {
-    const isValid = (
-        email.value &&
-        username.value &&
-        password.value &&
-        confirmPassword.value &&
-        password.value === confirmPassword.value &&
-        password.value.length >= 6
-    );
-    return isValid;
+  const isValid = (
+    email.value &&
+    username.value &&
+    password.value &&
+    confirmPassword.value &&
+    password.value === confirmPassword.value &&
+    password.value.length >= 6
+  );
+  return isValid;
 });
 
 const signup = async () => {
-    console.log('--- signup 함수 호출됨 ---');
+  console.log('--- signup 함수 호출됨 ---');
 
-    if (!isFormValid.value) {
-        console.log('폼 유효성 검사 실패.');
-        if (!email.value || !username.value || !password.value || !confirmPassword.value) {
-            alert('필수 정보를 모두 입력해주세요.');
-            return;
+  if (!isFormValid.value) {
+    console.log('폼 유효성 검사 실패.');
+    // isFormValid가 false일 때 어떤 특정 오류 때문인지 사용자에게 정확히 알림
+    if (!email.value || !username.value || !password.value || !confirmPassword.value) {
+      alert('필수 정보를 모두 입력해주세요.');
+    } else if (password.value !== confirmPassword.value) {
+      alert("비밀번호와 비밀번호 확인이 일치하지 않습니다.");
+    } else if (password.value.length < 6) {
+      alert("비밀번호는 6자 이상이어야 합니다.");
+    } else {
+            // 위의 특정 조건에 해당하지 않으면서 isFormValid가 false인 경우 (예: 추가 유효성 검사 실패)
+            alert('폼 입력값을 다시 확인해주세요.');
         }
-        if (password.value !== confirmPassword.value) {
-            alert("비밀번호와 비밀번호 확인이 일치하지 않습니다.");
-            return;
-        }
-         if (password.value.length < 6) {
-             alert("비밀번호는 6자 이상이어야 합니다.");
-             return;
-         }
-        alert('폼 입력값을 다시 확인해주세요.');
-        return;
-    }
+    return; // 유효성 검사 실패 시 함수 종료
+  }
 
-    console.log('폼 유효성 검사 통과. userService.registerUserWithFirebase 호출.');
+  console.log('폼 유효성 검사 통과. userService.signupUser 호출.');
 
-    try {
-      // registerUserWithFirebase 함수는 내부적으로 Firebase Authentication에 계정을 생성합니다.
-      // 계정 생성 성공 시 Firebase Auth에 자동 로그인 상태가 됩니다.
-      const user = await registerUserWithFirebase(
-        email.value,
-        password.value,
-        username.value,
-        selectedFile.value // selectedFile.value가 그대로 전달됨 (Storage 업로드 로직은 userService에 있을 것으로 가정)
-      );
+  try {
+   // signupUser 함수 호출 (실제 userService에서 내보내는 이름)
+   const user = await signupUser(
+    email.value,
+    password.value,
+    username.value,
+    selectedFile.value // selectedFile.value가 그대로 전달됨 (Storage 업로드 로직은 userService에 있을 것으로 가정)
+   );
 
-      if (user) {
-         console.log("회원가입 최종 성공:", user);
 
-         // 1. 회원가입 완료 알림 표시
-         alert("회원가입이 완료되었습니다. 초기 화면으로 이동합니다."); // <-- 알림 메시지 변경
+   if (user) {
+    console.log("회원가입 최종 성공:", user);
 
-         // 2. 방금 생성된 사용자를 로그아웃 상태로 만듭니다.
-         // registerUserWithFirebase 성공 후 Firebase Auth에는 로그인 상태이므로 명시적으로 로그아웃 호출
-         console.log("회원가입 후 자동 로그인 상태 해제 시도...");
-         await logoutUser(); // <-- userService에서 import한 logoutUser 함수 호출 및 완료 대기
+    // 1. 회원가입 완료 알림 표시
+    alert("회원가입이 완료되었습니다. 초기 화면으로 이동합니다."); // <-- 알림 메시지 변경
 
-         console.log("로그아웃 완료. 초기 화면(/)으로 이동.");
+    // 2. 방금 생성된 사용자를 로그아웃 상태로 만듭니다.
+    // registerUserWithFirebase 성공 후 Firebase Auth에는 로그인 상태이므로 명시적으로 로그아웃 호출
+    console.log("회원가입 후 자동 로그인 상태 해제 시도...");
+    // 올바르게 임포트한 logoutUser 함수 호출
+    await logoutUser(); // ✅ 올바르게 임포트된 logoutUser 함수 호출 및 완료 대기
+    console.log("로그아웃 완료. 초기 화면(/)으로 이동.");
 
-         // 3. SplashView (/)로 이동
-         router.push("/"); // <-- / 경로로 라우팅
+    // 3. SplashView (/)로 이동
+    router.push("/"); // <-- / 경로로 라우팅
 
-      } else {
-         // registerUserWithFirebase 함수가 null을 반환하거나 오류를 던지지 않은 경우 처리
-          console.warn("registerUserWithFirebase 함수가 사용자 객체를 반환하지 않았습니다.");
-           alert("회원가입 처리에 문제가 발생했습니다."); // 일반 오류 메시지
-      }
+   } else {
+    // signupUser 함수가 null을 반환하거나 오류를 던지지 않은 경우 처리
+     console.warn("signupUser 함수가 사용자 객체를 반환하지 않았습니다."); // 로그 메시지 업데이트
+     alert("회원가입 처리에 문제가 발생했습니다."); // 일반 오류 메시지
+   }
 
-    } catch (error) {
-      console.error("회원가입 처리 중 에러 발생 (signup catch):", error);
-       // Firebase Auth 오류 등 구체적인 오류 메시지 처리는 userService에서 이미 할 수 있습니다.
-       // 여기서는 발생한 에러를 로깅하고 일반적인 오류 메시지를 보여줍니다.
-       let errorMessage = "회원가입 중 오류가 발생했습니다.";
-        if (error && error.message) {
-            // error 객체에 메시지가 있다면 추가 정보를 포함
-            errorMessage += `: ${error.message}`;
-        }
-       alert(errorMessage); // 사용자에게 오류 알림
+  } catch (error) {
+   console.error("회원가입 처리 중 에러 발생 (signup catch):", error);
+        // --- FIX: Remove the unused errorMessage variable and commented-out lines ---
+        // errorMessage 변수가 사용되지 않으므로 선언 및 관련 라인을 삭제합니다.
+        // let errorMessage = "회원가입 중 오류가 발생했습니다."; // <-- 이 줄을 삭제합니다.
+        //  if (error && error.message) {
+        //      errorMessage += `: ${error.message}`; // <-- 이 주석 처리된 블록을 삭제합니다.
+        //  }
+        // alert(errorMessage); // <-- 이 주석 처리된 라인을 삭제합니다.
+        // 오류 자체는 위 console.error로 로깅됩니다.
+        // userService에서 이미 사용자에게 알림을 처리했다면, 여기서는 별도의 알림이 필요 없을 수 있습니다.
+        // ------------------------------------------------------------------------
 
-    } finally {
-        console.log('--- signup 함수 종료 ---');
-        // 비동기 작업 중 로딩 표시가 필요하다면 isSubmitting 상태를 관리하고 여기서 해제
-    }
+  } finally {
+    console.log('--- signup 함수 종료 ---');
+    // 비동기 작업 중 로딩 표시가 필요하다면 isSubmitting 상태를 관리하고 여기서 해제
+  }
 };
 </script>
 

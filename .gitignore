@@ -25,3 +25,4 @@ node_modules
 
 # Ignore the Firebase config file
 src/firebase.js
+firestore.rules

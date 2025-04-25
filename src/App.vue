@@ -29,7 +29,6 @@ import { useUserStore } from '@/store/user'; // 스토어 경로에 맞춰 수�
 import { useRoute } from 'vue-router';
 
 // userService에서 subscribeToAuthStateChanges 함수 import
-import { subscribeToAuthStateChanges } from '@/services/userService'; // <--- 이 함수를 import 합니다.
 
 
 const userStore = useUserStore();
@@ -46,7 +45,6 @@ const isBoardActive = computed(() => {
 onMounted(() => {
   console.log("[App.vue] onMounted: subscribeToAuthStateChanges 호출");
   // userService에 정의된 인증 상태 변경 리스너 설정 함수 호출
-  subscribeToAuthStateChanges(); // <--- userStore.checkAuthOnLoad() 대신 이 함수를 호출합니다.
 });
 
 // TODO: 앱 전반적으로 필요한 로직 추가 (예: 인증 상태에 따른 라우트 가드 등)
@@ -69,16 +67,16 @@ nav {
   border-top: 1px solid #e1e1e1;
   left: 0;
   right: 0;
-  height: 70px;
+  height: 55px;
   display: flex;
   /* 링크들을 균등하게 배치 */
   justify-content: space-around;
   align-items: center;
   background-color: white;
   /* 하단 고정을 원하면 주석 해제 */
-  /* position: fixed; */
-  /* bottom: 0; */
-  /* width: 100%; */
+  position: fixed;
+  bottom: 0;
+  width: 100%;
 }
 
 /* nav 바로 아래의 router-link (기본)와 a 태그 (custom)에 flex 속성 적용 */

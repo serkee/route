@@ -226,14 +226,15 @@ onUnmounted(() => {
 .container {
   width: 100%;
   margin: 0 auto;
-  padding: 0 20px; /* Add padding */
+  padding-left:20px;
+  padding-right:20px;
   box-sizing: border-box;
 }
 
 .content {
   width: 100%;
   position: relative;
-  padding-top: 120px; /* 헤더 + 탭 높이에 맞춰 조정 */
+  padding-top: 50px; /* 헤더 + 탭 높이에 맞춰 조정 */
 }
 .tab {
   position: fixed;
@@ -304,7 +305,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 15px 0;
+  padding: 10px 0;
   gap: 10px;
   text-decoration: none;
   color: #222;
@@ -323,7 +324,7 @@ onUnmounted(() => {
 }
 .list > ul > li > a .txt > ul {
   display: flex;
-  margin-top: 13px;
+  margin-top: 9px;
   gap: 15px;
   padding: 0;
 }
@@ -356,7 +357,7 @@ onUnmounted(() => {
   height: 80px;
   position: relative;
   flex-shrink: 0;
-  box-shadow: 0px 0px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0px 0px 1px rgba(0, 0, 0, 0.2);
 }
 .list > ul > li > a img {
   width: 100%;
@@ -375,20 +376,6 @@ onUnmounted(() => {
   color: #005fec;
   display: inline-block;
   margin-right: 5px;
-}
-.btn-feed {
-  position: fixed;
-  bottom: 75px; /* 하단 네비게이션 바 높이에 맞춰 조정 */
-  right: 15px;
-  height: 50px;
-  background: rgb(19, 177, 56);
-  border: 0;
-  font-size: 20px;
-  color: #fff;
-  padding: 0 20px;
-  border-radius: 25px;
-  cursor: pointer;
-  box-shadow: 3px 3px 3px rgba(0, 0, 0, 0.2);
 }
 .no-posts-message {
   padding: 30px 0 !important;

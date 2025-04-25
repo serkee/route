@@ -2,7 +2,7 @@
   <div class="container">
     <div class="header">
       <div class="header__left">
-        <button class="back-button" @click="goBack">←</button>
+        <button class="home-button" @click="router.push('/')">←</button>
       </div>
       <h1>로그인</h1>
       <div class="header__right"></div>
@@ -24,6 +24,10 @@
 
       <p class="signup-link">
         아직 계정이 없으신가요? <router-link to="/signup">회원가입</router-link>
+      </p>
+
+      <p class="forgot-password-link">
+        <router-link to="/forgot-password">비밀번호를 잊으셨나요?</router-link>
       </p>
     </div>
   </div>
@@ -64,11 +68,6 @@ onMounted(() => {
   // const userStore = useUserStore();
   // if (userStore.isAuthenticated) { router.replace('/board'); }
 });
-
-// 뒤로 가기 함수
-const goBack = () => {
-  router.go(-1);
-};
 
 // 로그인 함수 (userService의 loginUser 함수 사용)
 const login = async () => {
@@ -112,7 +111,6 @@ const login = async () => {
   align-items: center; /* 세로 중앙 정렬 */
   flex-direction: column;
   flex-grow: 1; /* 남은 공간을 middle이 차지 */
-   padding: 20px; /* 패딩 추가 */
    box-sizing: border-box;
    width: 100%;
 }
@@ -188,5 +186,16 @@ button[type="submit"]:hover {
   text-decoration: underline;
 }
 
-/* 기존 .form-group + .form-group 스타일은 제거 */
+.forgot-password-link {
+    margin-top: 10px; /* 위 간격 */
+    font-size: 14px;
+    text-align: center; /* 가운데 정렬 */
+}
+.forgot-password-link a {
+    color: #555; /* 색상 조정 (필요시) */
+    text-decoration: none;
+}
+.forgot-password-link a:hover {
+    text-decoration: underline;
+}
 </style>

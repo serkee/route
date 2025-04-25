@@ -1,12 +1,25 @@
-rules_version = '2';
-
-// Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
+rules_version = '2'; // 규칙 버전
 service firebase.storage {
+  // {bucket} 부분은 여러분의 Firebase Storage 버킷 이름입니다.
   match /b/{bucket}/o {
+
+    // === 파일 읽기 권한 설정 ===
+    // 예시: 인증된 모든 사용자는 모든 파일에 대해 읽기 권한을 가집니다.
+    // 필요에 따라 더 세분화된 읽기 권한 규칙을 설정할 수 있습니다.
     match /{allPaths=**} {
-      allow read, write: if false;
+      allow read: if request.auth != null;
     }
+
+    // === 파일 쓰기 (업로드, 수정) 권한 설정 ===
+    // 인증된 사용자는 'posts_images' 폴더 아래 자신의 UID와 동일한 이름의 폴더 안에만 파일을 쓸 수 있도록 허용합니다.
+    // {userId}는 경로 세그먼트 변수이고, {fileName=**}는 해당 폴더 안의 모든 파일 및 하위 경로를 의미합니다.
+    match /posts_images/{userId}/{fileName=**} {
+      // 쓰기(write) 권한은 요청하는 사용자가 인증되었고 (request.auth != null)
+      // 경로의 {userId} 부분이 요청하는 사용자의 UID와 동일할 때만 허용합니다.
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // 만약 다른 용도로 Storage를 사용한다면 해당 경로에 대한 규칙을 추가해야 합니다.
+
   }
 }

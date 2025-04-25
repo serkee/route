@@ -27,8 +27,9 @@
               alt="작성자 프로필 이미지"
               class="avatar-image"
             />
+            <div v-else class="profile-photo-placeholder"></div>
           </span>
-          <p class="name">{{ post.authorName || post.authorId }}</p>
+          <p class="name">{{ post.authorName || post.authorId || '익명' }}</p>
           <p class="info">
             {{ formatDate(post.createdAt) }}
             <span>조회수 {{ post.views }}</span>
@@ -41,8 +42,9 @@
         </div>
         {{ post.content }}
       </div>
+
       <div
-        v-if="post && currentUser && currentUser.uid === post.authorId"
+        v-if="post && currentUser && (currentUser.uid === post.authorId || userStore.isCurrentUserAdmin)"
         class="post-actions"
       >
         <button @click="handleEdit" class="edit-button">수정</button>
@@ -63,7 +65,7 @@
                 <span>{{ formatDate(comment.createdAt) }}</span>
 
                 <template
-                  v-if="currentUser && currentUser.uid === comment.authorId"
+                  v-if="currentUser && (currentUser.uid === comment.authorId || userStore.isCurrentUserAdmin)"
                 >
                   <button
                     @click="startEditComment(comment)"
@@ -81,9 +83,9 @@
 
                 <button
                   v-if="
-                    !comment.parentId &&
-                    currentUser &&
-                    editingCommentId !== comment.id
+                    !comment.parentId && // 최상위 댓글이고
+                    currentUser && // 로그인 상태이며
+                    editingCommentId !== comment.id // 현재 이 댓글을 수정 중이 아닐 때
                   "
                   @click="startReply(comment.id)"
                   class="reply-button action-button"
@@ -137,25 +139,25 @@
                 <div class="comment-author">
                   {{ reply.authorName || reply.authorId || "익명" }}
                   <div class="comment-info">
-                  <span>{{ formatDate(reply.createdAt) }}</span>
+                    <span>{{ formatDate(reply.createdAt) }}</span>
 
-                  <template
-                    v-if="currentUser && currentUser.uid === reply.authorId"
-                  >
-                    <button
-                      @click="startEditComment(reply)"
-                      class="action-button edit-comment-button"
+                    <template
+                      v-if="currentUser && (currentUser.uid === reply.authorId || userStore.isCurrentUserAdmin)"
                     >
-                      수정
-                    </button>
-                    <button
-                      @click="deleteComment(postId, reply.id)"
-                      class="action-button delete-comment-button"
-                    >
-                      삭제
-                    </button>
-                  </template>
-                </div>
+                      <button
+                        @click="startEditComment(reply)"
+                        class="action-button edit-comment-button"
+                      >
+                        수정
+                      </button>
+                      <button
+                        @click="deleteComment(postId, reply.id)"
+                        class="action-button delete-comment-button"
+                      >
+                        삭제
+                      </button>
+                    </template>
+                  </div>
                 </div>
 
                 <div
@@ -233,6 +235,10 @@ import {
 // @/firebase 에서 db 인스턴스 import
 import { db } from "@/firebase";
 
+// Pinia 스토어 임포트 (관리자 상태 확인을 위해 필요)
+import { useUserStore } from "@/store/user"; // <-- useUserStore 임포트
+
+
 const route = useRoute();
 const router = useRouter();
 const postId = route.params.id;
@@ -253,6 +259,10 @@ const replyingToCommentId = ref(null);
 // --- 댓글 수정 모드 관련 상태 변수 ---
 const editingCommentId = ref(null); // <-- 수정 중인 댓글/답글의 ID
 const editingCommentText = ref(""); // <-- 수정 중인 댓글/답글의 내용
+
+// Pinia 스토어 인스턴스 (관리자 상태 확인에 사용)
+const userStore = useUserStore(); // <-- userStore 인스턴스 가져오기
+
 
 // Firestore에 저장된 category 값과 화면 표시용 한글 이름을 매핑하는 객체
 const categoryDisplayNameMap = {
@@ -287,7 +297,7 @@ const fetchPost = async () => {
     if (fetchedPost) {
       post.value = fetchedPost;
 
-      // ### 작성자 프로필 이미지 URL 가져오기 ###
+      // ### 작성자 프로필 이미지 URL 및 이름 가져오기 ###
       // 게시글 데이터에 authorId가 있다면 사용자 정보 가져오기 시도
       if (post.value.authorId) {
         try {
@@ -296,31 +306,44 @@ const fetchPost = async () => {
           // 해당 사용자 문서 가져오기
           const userDocSnap = await getDoc(userDocRef);
 
-          // 사용자 문서가 존재하고 데이터가 있다면 photoURL 가져오기
+          // 사용자 문서가 존재하고 데이터가 있다면 photoURL과 이름 가져오기
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
             // 가져온 사용자 데이터에서 photoURL 필드를 게시글 객체에 추가 (템플릿에서 사용)
             post.value.authorProfileImageUrl = userData.photoURL;
+            // 작성자 이름이 게시글 문서에 없거나 불완전할 경우 사용자 문서의 displayName/username 사용
+            // 게시글 문서에 저장된 authorName이 우선이지만, 사용자 문서의 정보로 보완
+             post.value.authorName = post.value.authorName || userData.displayName || userData.username || post.value.authorId || '익명';
+
             console.log("작성자 프로필 이미지 URL 가져옴:", post.value.authorProfileImageUrl);
+            console.log("게시글 작성자 이름 (보완 후):", post.value.authorName);
+
           } else {
             // 사용자 문서를 찾을 수 없는 경우 경고 로깅
             console.warn(`작성자 사용자 문서 (ID: ${post.value.authorId})를 찾을 수 없습니다.`);
             post.value.authorProfileImageUrl = null; // URL을 null로 설정하여 이미지 숨김
+             // 사용자 문서 없으면 게시글 문서에 있는 authorName 사용 또는 기본값
+             post.value.authorName = post.value.authorName || post.value.authorId || '익명';
           }
         } catch (userFetchError) {
           // 사용자 데이터 가져오기 오류 발생 시 로깅
           console.error(`작성자 데이터 (ID: ${post.value.authorId}) 가져오기 오류:`, userFetchError);
-           post.value.authorProfileImageUrl = null; // 오류 발생 시 URL을 null로 설정
+            post.value.authorProfileImageUrl = null; // 오류 발생 시 URL을 null로 설정
+           // 오류 발생 시 게시글 문서에 있는 authorName 사용 또는 기본값
+           post.value.authorName = post.value.authorName || post.value.authorId || '익명';
         }
       } else {
-           // 게시글에 작성자 ID가 없는 경우 경고 로깅
-           console.warn("게시글 작성자 ID가 없습니다.");
-           post.value.authorProfileImageUrl = null; // URL을 null로 설정
+          // 게시글에 작성자 ID가 없는 경우 경고 로깅 (필수 필드가 누락된 경우일 수 있음)
+          console.warn("게시글 작성자 ID가 없습니다.");
+          post.value.authorProfileImageUrl = null; // URL을 null로 설정
+         // 작성자 ID 없으면 게시글 문서에 있는 authorName 사용 또는 기본값
+         post.value.authorName = post.value.authorName || '익명';
       }
 
       // *** 게시글 조회수 증가 로직 ***
       // 게시글 정보를 성공적으로 가져온 후에만 조회수 증가 시도
       const postRef = doc(db, "posts", postId); // 해당 게시글 문서 참조 가져오기
+      // 로그인된 사용자의 조회수만 증가시키거나, 중복 조회 방지 로직 추가 가능 (현재는 단순 증가)
       try {
         // updateDoc과 increment 함수를 사용하여 views 필드를 원자적으로 1 증가
         await updateDoc(postRef, {
@@ -328,19 +351,19 @@ const fetchPost = async () => {
         });
         console.log(`게시글 ${postId} 조회수 1 증가 완료.`);
         // 화면에 즉시 반영하려면 post.value.views 값을 클라이언트 측에서 증가
-         if(post.value.views !== undefined) {
-           post.value.views++; // 화면 표시 값을 즉시 증가 (선택 사항)
-         } else {
-           post.value.views = 1; // views 필드가 없었다면 1로 초기화 (선택 사항)
-         }
+          if(post.value.views !== undefined) {
+            post.value.views++; // 화면 표시 값을 즉시 증가 (선택 사항)
+          } else {
+            post.value.views = 1; // views 필드가 없었다면 1로 초기화 (선택 사항)
+          }
 
       } catch (updateError) {
         console.error("조회수 업데이트 오류:", updateError);
       }
     } else {
-       // getPostById로 게시글을 찾을 수 없는 경우
-       console.warn(`게시글 ID ${postId}를 찾을 수 없습니다.`);
-       post.value = null; // 게시글 없음 상태로 설정
+        // getPostById로 게시글을 찾을 수 없는 경우
+        console.warn(`게시글 ID ${postId}를 찾을 수 없습니다.`);
+        post.value = null; // 게시글 없음 상태로 설정
     }
 
   } catch (error) {
@@ -352,22 +375,60 @@ const fetchPost = async () => {
 };
 
 
-// 특정 게시글의 댓글 목록을 실시간으로 가져오는 함수 (답글 관계 처리)
+// 특정 게시글의 댓글 목록을 실시간으로 가져오는 함수 (답글 관계 처리 및 작성자 정보 포함)
 const listenForComments = (postId) => {
   console.log(`게시글 ${postId} 댓글 리스닝 시작`);
+  // 해당 게시글 문서의 하위 컬렉션 'comments'에 대한 참조 가져오기
   const commentsCollectionRef = collection(db, "posts", postId, "comments");
 
-  // 쿼리: createdAt 기준 오름차순 정렬
+  // 댓글 쿼리: 생성 시간(createdAt) 기준 오름차순 정렬
   const q = query(commentsCollectionRef, orderBy("createdAt", "asc"));
 
+  // 실시간 리스너 설정
   unsubscribeComments = onSnapshot(
     q,
-    (snapshot) => {
+    async (snapshot) => { // async로 변경하여 사용자 데이터 비동기 처리 가능하게 함
       console.log("댓글 스냅샷 업데이트 감지");
       const allComments = []; // 모든 댓글 (최상위 + 답글) 임시 저장
-      snapshot.forEach((doc) => {
-        allComments.push({ id: doc.id, ...doc.data(), replies: [] }); // replies 배열 추가
-      });
+
+      // 각 댓글 문서 데이터를 가져오면서 작성자 프로필 이미지 URL 및 이름 가져오기 시도
+      for (const docSnapshot of snapshot.docs) {
+        const commentData = { id: docSnapshot.id, ...docSnapshot.data(), replies: [] }; // replies 배열 추가
+
+        // 댓글 작성자 프로필 이미지 URL 및 이름 가져오기
+        if (commentData.authorId) {
+          try {
+            const userDocRef = doc(db, 'users', commentData.authorId);
+            const userDocSnap = await getDoc(userDocRef); // 사용자 문서 비동기로 가져오기
+
+            if (userDocSnap.exists()) {
+              const userData = userDocSnap.data();
+              commentData.authorProfileImageUrl = userData.photoURL; // 프로필 이미지 URL 추가
+               // 댓글 작성자 이름이 댓글 문서에 없거나 불완전할 경우 사용자 문서의 displayName/username 사용
+              commentData.authorName = commentData.authorName || userData.displayName || userData.username || commentData.authorId || '익명';
+              console.log("댓글 작성자 이름 (보완 후):", commentData.authorName);
+
+            } else {
+              console.warn(`댓글 작성자 사용자 문서 (ID: ${commentData.authorId})를 찾을 수 없습니다.`);
+              commentData.authorProfileImageUrl = null; // URL을 null로 설정
+               // 사용자 문서 없으면 댓글 문서에 있는 authorName 사용 또는 기본값
+               commentData.authorName = commentData.authorName || commentData.authorId || '익명';
+            }
+          } catch (userFetchError) {
+             console.error(`댓글 작성자 데이터 (ID: ${commentData.authorId}) 가져오기 오류:`, userFetchError);
+             commentData.authorProfileImageUrl = null; // 오류 발생 시 URL을 null로 설정
+             // 오류 발생 시 댓글 문서에 있는 authorName 사용 또는 기본값
+             commentData.authorName = commentData.authorName || commentData.authorId || '익명';
+           }
+          } else {
+             console.warn("댓글 작성자 ID가 없습니다.");
+             commentData.authorProfileImageUrl = null; // URL을 null로 설정
+            // 작성자 ID 없으면 댓글 문서에 있는 authorName 사용 또는 기본값
+            commentData.authorName = commentData.authorName || '익명';
+          }
+        allComments.push(commentData); // 데이터 가져오기가 완료된 댓글 객체 추가
+      }
+
 
       const commentMap = {}; // 댓글 ID를 키로 댓글 객체를 저장하는 맵
       allComments.forEach((comment) => {
@@ -405,23 +466,25 @@ const listenForComments = (postId) => {
       comments.value = topLevelComments;
 
       console.log(
-        `게시글 ${postId} 댓글 데이터 업데이트 완료. 최상위 댓글 ${topLevelComments.length}개`
+        `게시글 ${postId} 댓글 데이터 업데이트 완료. 최상위 댓글 ${topLevelComments.length}개, 총 댓글 ${allComments.length}개`
       );
 
-      // TODO: 댓글 수 카운트 업데이트 로직 필요 (Firestore에서 comments 컬렉션의 문서 수를 세거나, 게시글 문서에 commentCount 필드를 업데이트)
-      // 게시글 문서의 commentCount 필드를 업데이트하는 것이 더 효율적일 수 있습니다. (댓글 추가/삭제 시 트랜잭션 사용)
-      // 현재는 comments.length를 사용하여 화면에 표시합니다.
+      // TODO: 게시글 문서의 commentCount 필드를 업데이트하는 로직 필요 (댓글 추가/삭제 시 Cloud Functions 또는 트랜잭션 사용 권장)
+      // 현재는 comments.length를 사용하여 화면에 댓글 총 개수를 표시합니다.
+      // 게시글 문서에 commentCount 필드를 저장하는 것이 좋습니다.
     },
     (error) => {
       console.error("댓글 리스닝 오류:", error);
       // 댓글 로딩 중 오류 발생 시 처리
       alert("댓글을 불러오는 중 오류가 발생했습니다.");
+      comments.value = []; // 오류 발생 시 댓글 목록 초기화
     }
   );
 };
 
 // 댓글 추가 함수 (addCommentToPost 함수 사용 - 답글 기능 포함)
 const addComment = async () => {
+  // 입력 내용 검사
   if (!newCommentText.value.trim()) {
     alert(
       replyingToCommentId.value
@@ -430,16 +493,19 @@ const addComment = async () => {
     );
     return;
   }
+  // 로그인 상태 확인 (UI에서도 제어하지만 함수 시작 시 다시 확인)
   if (!currentUser.value) {
-    alert("댓글을 작성하려면 로그인해야 합니다.");
-    // TODO: 로그인 페이지로 리디렉션하거나 로그인 모달 띄우기
+    alert("댓글/답글을 작성하려면 로그인해야 합니다.");
+    // TODO: 로그인 페이지로 리다이렉션하거나 로그인 모달 띄우기
     return;
   }
 
   try {
+    // 댓글 데이터 객체 생성
     const commentData = {
       text: newCommentText.value.trim(),
       // boardService의 addCommentToPost 함수에서 authorId, authorName, createdAt 등을 추가합니다.
+      // 필요하다면 commentData에 다른 필드 추가 (예: authorProfileImageUrl 등)
     };
 
     // 답글 작성 모드이면 parentId를 commentData에 추가
@@ -450,11 +516,13 @@ const addComment = async () => {
     console.log("댓글/답글 작성 요청:", commentData);
 
     // boardService의 addCommentToPost 함수 호출 (게시글 ID, 댓글 데이터, 현재 사용자 정보 전달)
-    // addCommentToPost 함수는 댓글 문서 추가와 commentCount 증가 로직을 포함 (boardService에 구현 필요)
-    await addCommentToPost(postId, commentData, currentUser.value); // currentUser 전달 필요
+    // addCommentToPost 함수는 댓글 문서 추가와 게시글 commentCount 증가 로직을 포함 (boardService에 구현 필요)
+    // currentUser.value 객체 전체 또는 필요한 정보(uid, displayName 등)만 전달
+    await addCommentToPost(postId, commentData, currentUser.value);
 
-    newCommentText.value = ""; // 입력 필드 초기화
-    replyingToCommentId.value = null; // 답글 모드 해제
+    // 작성 완료 후 입력 필드 및 모드 초기화
+    newCommentText.value = "";
+    replyingToCommentId.value = null;
 
     console.log("댓글/답글 작성 요청 완료.");
 
@@ -472,7 +540,7 @@ const startReply = (commentId) => {
     cancelEditComment();
   }
   replyingToCommentId.value = commentId; // 클릭된 댓글의 ID를 답글 작성 모드로 설정
-  newCommentText.value = ""; // 입력 필드 초기화
+  newCommentText.value = ""; // 답글 입력 필드 초기화
   // 필요하다면 해당 댓글 위치로 스크롤 이동 (선택 사항)
 };
 
@@ -484,12 +552,18 @@ const cancelReply = () => {
 
 // --- 댓글 수정 관련 함수 ---
 
-// 댓글 수정 모드 시작 (댓글 정보 설정)
+// 댓글 수정 모드 시작 (선택된 댓글 정보 설정)
 const startEditComment = (comment) => {
   // 만약 현재 답글 작성 모드라면 답글 작성 모드 취소
   if (replyingToCommentId.value) {
     cancelReply();
   }
+  // 현재 사용자가 댓글 작성자 본인이거나 관리자인지 확인 (UI에서도 제어되지만 여기서도 확인)
+  if (!currentUser.value || (currentUser.value.uid !== comment.authorId && !userStore.isCurrentUserAdmin)) {
+      alert("댓글 수정 권한이 없습니다.");
+      return; // 권한 없으면 함수 실행 중단
+  }
+
   editingCommentId.value = comment.id; // 수정 중인 댓글 ID 설정
   editingCommentText.value = comment.text; // 수정 중인 댓글 내용 설정
   console.log(`댓글 ${comment.id} 수정 모드 시작. 내용: "${comment.text}"`);
@@ -498,32 +572,41 @@ const startEditComment = (comment) => {
 
 // 댓글 수정 내용 저장 (updateComment 함수 사용)
 const saveEditedComment = async () => {
-  const commentIdToEdit = editingCommentId.value;
-  const updatedText = editingCommentText.value.trim();
+  const commentIdToEdit = editingCommentId.value; // 수정할 댓글의 ID
+  const updatedText = editingCommentText.value.trim(); // 수정된 내용 (앞뒤 공백 제거)
 
+  // 수정 내용 검사
   if (!updatedText) {
     alert("수정할 댓글 내용을 입력하세요.");
     return;
   }
 
-  // 현재 로그인 사용자 == 댓글 작성자인지 다시 확인 (BoardDetailView.vue 리스너에서 authorId를 가져오므로 확인 가능)
-  // 하지만 boardService의 updateComment 함수에서도 보안을 위해 작성자 확인 로직을 포함하는 것이 좋습니다.
-  // 여기서는 일단 입력값 검사 후 서비스 함수 호출
+  // 현재 로그인 사용자 == 댓글 작성자이거나 관리자인지 다시 확인 (Submit 시점)
+  // startEditComment에서도 확인했지만, 저장 직전에도 다시 확인하는 것이 안전합니다.
+   const commentToEdit = findCommentById(commentIdToEdit, comments.value); // comments 배열에서 해당 댓글 찾기
+   if (!commentToEdit || !currentUser.value || (currentUser.value.uid !== commentToEdit.authorId && !userStore.isCurrentUserAdmin)) {
+       alert("댓글 수정 권한이 없습니다.");
+       // 수정 모드 초기화 후 종료
+       editingCommentId.value = null;
+       editingCommentText.value = "";
+       return;
+   }
 
   try {
     console.log(
       `댓글 ${commentIdToEdit} 수정 내용 저장 시도. 새로운 내용: "${updatedText}"`
     );
     // boardService의 updateComment 함수 호출 (게시글 ID, 댓글 ID, 수정된 내용 전달)
-    await updateComment(postId, commentIdToEdit, updatedText); // <-- boardService에서 구현 필요
+    // updateComment 함수는 Firestore 문서 업데이트 및 보안 규칙 검사 수행 (boardService에 구현 필요)
+    await updateComment(postId, commentIdToEdit, { text: updatedText }); // <-- boardService에서 구현 필요
 
     console.log(`댓글 ${commentIdToEdit} 수정 완료.`);
-    // 수정 완료 후 수정 모드 해제
+    // 수정 완료 후 수정 모드 해제 및 입력 필드 초기화
     editingCommentId.value = null;
     editingCommentText.value = "";
 
     // TODO: 성공 메시지 표시 (선택 사항)
-    // alert('댓글이 수정되었습니다.'); // 실시간 업데이트로 화면에 자동으로 반영됨
+    // alert('댓글이 수정되었습니다.'); // 실시간 업데이트 리스너 덕분에 화면에 자동으로 반영됩니다.
   } catch (error) {
     console.error(`댓글 ${commentIdToEdit} 수정 오류:`, error);
     alert("댓글 수정 중 오류가 발생했습니다.");
@@ -537,46 +620,69 @@ const cancelEditComment = () => {
   editingCommentText.value = ""; // 입력 필드 초기화
 };
 
+// 재귀적으로 댓글 및 답글 목록에서 특정 ID의 댓글/답글을 찾는 헬퍼 함수
+// (saveEditedComment 함수에서 수정할 댓글 객체를 찾기 위해 사용)
+function findCommentById(id, commentList) {
+    for (const comment of commentList) {
+        if (comment.id === id) {
+            return comment; // 현재 댓글이 일치하면 반환
+        }
+        // 답글 목록이 있다면 재귀적으로 탐색
+        if (comment.replies && comment.replies.length > 0) {
+            const foundInReplies = findCommentById(id, comment.replies);
+            if (foundInReplies) {
+                return foundInReplies; // 답글에서 찾았으면 반환
+            }
+        }
+    }
+    return null; // 찾지 못함
+}
+
+
 // 게시글 삭제 함수 (boardService 사용)
 const handleDelete = async () => {
-  // 삭제 확인 컨펌
-  if (!confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
-    return;
-  }
-  // 삭제 권한 확인 (현재 사용자 == 게시글 작성자)
+  // 삭제 권한 확인 (현재 사용자 == 게시글 작성자이거나 관리자)
   if (
-    !post.value ||
-    !currentUser.value ||
-    currentUser.value.uid !== post.value.authorId
+    !post.value || // 게시글 데이터가 없거나
+    !currentUser.value || // 현재 사용자가 로그인되지 않았거나
+    (currentUser.value.uid !== post.value.authorId && !userStore.isCurrentUserAdmin) // <-- 작성자 본인도 아니고 관리자도 아니면
   ) {
-    alert("게시글 작성자만 삭제할 수 있습니다.");
-    return;
+    alert("게시글 삭제 권한이 없습니다.");
+    return; // 권한 없으면 함수 실행 중단
+  }
+
+  // 삭제 확인 컨펌
+  if (!confirm("정말로 이 게시글을 삭제하시겠습니까? 이 게시글에 달린 모든 댓글과 답글도 함께 삭제됩니다.")) {
+    return; // 사용자가 '취소'를 누르면 함수 실행 중단
   }
 
   try {
     console.log(`게시글 ${postId} 삭제 시도.`);
-    // boardService의 deletePost 함수 호출 (이미지, 댓글, 게시글 문서 모두 삭제)
-    await deletePost(postId); // boardService 함수 호출
+    // boardService의 deletePost 함수 호출 (이미지, 댓글 컬렉션, 게시글 문서 모두 삭제)
+    // 이 함수는 게시글 ID만 인자로 받으며, 실제 삭제 로직은 boardService에서 구현됩니다.
+    // boardService의 deletePost 함수 내부에서도 Firestore 보안 규칙을 통과해야 실제 삭제가 됩니다.
+    await deletePost(postId); // <-- boardService에서 구현 필요
     console.log("게시글 삭제 완료.");
 
-    alert("게시글이 삭제되었습니다.");
+    alert("게시글이 성공적으로 삭제되었습니다.");
     // 삭제 성공 후 게시글 목록 페이지로 이동
     router.push("/board");
   } catch (error) {
-    console.error("게시글 삭제 오류:", error);
-    alert("게시글 삭제 중 오류가 발생했습니다.");
+    console.error("게시글 삭제 오류:", error); // 삭제 중 오류 발생 시 로깅
+    alert("게시글 삭제 중 오류가 발생했습니다."); // 사용자에게 오류 알림
   }
 };
 
 // 게시글 수정 페이지로 이동하는 함수
 const handleEdit = () => {
+  // 수정 권한 확인 (현재 사용자 == 게시글 작성자이거나 관리자)
   if (
-    !post.value ||
-    !currentUser.value ||
-    currentUser.value.uid !== post.value.authorId
+    !post.value || // 게시글 데이터가 없거나
+    !currentUser.value || // 현재 사용자가 로그인되지 않았거나
+    (currentUser.value.uid !== post.value.authorId && !userStore.isCurrentUserAdmin) // <-- 작성자 본인도 아니고 관리자도 아니면
   ) {
-    alert("게시글 작성자만 수정할 수 있습니다.");
-    return;
+    alert("게시글 수정 권한이 없습니다.");
+    return; // 권한 없으면 함수 실행 중단
   }
   console.log(`게시글 ${postId} 수정 페이지로 이동.`);
   // BoardWriteView.vue 페이지로 이동하면서 게시글 ID를 쿼리 파라미터로 전달
@@ -604,27 +710,38 @@ const goBack = () => {
 
 // 컴포넌트 마운트 시 실행
 onMounted(async () => {
-  // 현재 로그인 사용자 정보 가져오기
+  // 현재 로그인 사용자 정보 가져오기 (getAuth().currentUser는 초기 인증 상태를 가져옵니다.)
+  // Pinia userStore는 onAuthStateChanged 리스너에 의해 비동기적으로 업데이트됩니다.
+  // UI 표시를 위해 초기 currentUser 값을 사용하지만, 관리자 권한은 userStore.isCurrentUserAdmin에 의존합니다.
   const auth = getAuth();
   currentUser.value = auth.currentUser;
+
   console.log(
-    "BoardDetailView mounted. Current User:",
+    "BoardDetailView mounted. Current User UID:",
     currentUser.value ? currentUser.value.uid : "None"
   );
+  // 디버그 로그 1: mounted 시점의 userStore.isCurrentUserAdmin 값
+  console.log("BoardDetailView mounted DEBUG: userStore.isCurrentUserAdmin (initial):", userStore.isCurrentUserAdmin); // <-- 이 줄 추가
+
 
   if (postId) {
-    console.log(`BoardDetailView: 게시글 ID ${postId} 감지됨.`);
-    await fetchPost(); // 게시글 상세 정보 가져오기 (작성자 프로필 이미지 포함)
-    listenForComments(postId); // 댓글 목록 실시간 리스닝 시작
+    console.log(`BoardDetailView: 게시글 ID ${postId} 감지됨. 데이터 가져오기 시작.`);
+    // 게시글 상세 정보 가져오기 및 조회수 증가 (async 함수)
+    await fetchPost();
+    // 댓글 목록 실시간 리스닝 시작
+    listenForComments(postId);
   } else {
     console.error("게시글 ID가 라우트 파라미터에 없습니다.");
     router.replace("/board"); // 게시글 ID 없으면 게시판 목록으로 리다이렉션
   }
+
+  // 디버그 로그 2: 데이터 로드 및 댓글 리스닝 시작 후의 userStore.isCurrentUserAdmin 값
+  console.log("BoardDetailView Debug: userStore.isCurrentUserAdmin after data load:", userStore.isCurrentUserAdmin); // <-- 이 줄 추가
 });
 
 // 컴포넌트 언마운트 시 실행
 onUnmounted(() => {
-  // 댓글 실시간 리스너가 있다면 해제
+  // 댓글 실시간 리스너가 있다면 해제하여 메모리 누수 방지
   if (unsubscribeComments) {
     unsubscribeComments();
     console.log("댓글 Firestore 리스너 해제됨.");
@@ -633,82 +750,52 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* 컨테이너 및 헤더 기본 스타일 */
-.container {
+/* 기존 스타일 유지 및 필요 시 추가/수정 */
+.container{
   padding-left: 0;
   padding-right: 0;
-  /* 기존 styles 유지 */
 }
-.header {
-  display: flex;
-  align-items: center;
-  padding: 0 10px;
-  height: 50px;
-  border-bottom: 1px solid #eee;
-  background-color: #fff;
-  /* 기존 styles 유지 */
-}
-.header__left .back-button {
-  width: 50px;
-  height: 50px;
-  text-indent: -9999px;
-  background: url(@/assets/images/common/ico_back.svg) no-repeat center center;
-  background-size: 24px auto;
-  border: 0;
-  cursor: pointer;
-  /* 기존 styles 유지 */
-}
-.header h1 {
-  flex-grow: 1;
-  text-align: center;
-  font-size: 18px;
-  margin: 0;
-  /* 기존 styles 유지 */
-}
-.header__right {
-  width: 50px;
-  /* 기존 styles 유지 */
-}
-
-/* 게시글 내용 영역 스타일 */
+/* 게시글 내용 영역 전체 스타일 */
 .post-content {
   text-align: left;
   width: 100%;
-  padding-bottom: 20px;
-  /* 기존 styles 유지 */
 }
 
+/* 게시글 제목, 카테고리, 정보 포함 헤더 스타일 */
 .post-content-head {
-  padding: 15px 20px 10px 20px;
-  font-size: 22px;
-  margin-bottom: 10px;
-  border-bottom: 1px solid #eee;
-  /* 기존 styles 유지 */
+  padding: 0px 20px 10px 20px; /* 상하좌우 패딩 */
+  font-size: 22px; /* 게시글 제목 크기 */
+  margin-bottom: 10px; /* 본문과의 간격 */
+  border-bottom: 1px solid #eee; /* 하단 구분선 */
 }
+
+/* 카테고리 링크 스타일 */
 .post-content-head-cate {
   display: inline-block;
-  margin-bottom: 14px;
+  margin-bottom: 14px; /* 제목과의 간격 */
   font-size: 14px;
   text-decoration: none;
-  color: #005fec;
-  /* 기존 styles 유지 */
+  color: #005fec; /* 링크 색상 */
 }
-.post-content-head > h2 {
-  padding-bottom: 18px;
-  font-size: 24px;
-  margin: 0;
-  /* 기존 styles 유지 */
+.post-content-head-cate:hover {
+    text-decoration: underline; /* 호버 시 밑줄 */
 }
 
-/* 작성자 정보 스타일 */
+/* 게시글 제목 스타일 */
+.post-content-head > h2 {
+  padding-bottom: 18px; /* 작성자 정보와의 간격 */
+  font-size: 24px;
+  margin: 0;
+}
+
+/* 작성자 정보 컨테이너 스타일 */
 .post-content-info {
   position: relative;
   padding-left: 50px; /* 프로필 이미지 공간 확보 */
-  /* gap: 15px; 제거 */
-  display: flex; /* 이름과 정보가 프로필 이미지 옆에 오도록 flexbox 사용 */
+  display: flex; /* 이름과 정보가 프로필 이미지 옆에 오도록 */
   flex-direction: column; /* 이름과 정보는 세로로 쌓이도록 */
   justify-content: center; /* 세로 중앙 정렬 */
-  /* 기존 styles 유지 */
+  min-height: 40px; /* 프로필 이미지 높이와 맞춤 */
 }
 
 /* 프로필 이미지 컨테이너 (span.profile) 스타일 */
@@ -717,32 +804,39 @@ onUnmounted(() => {
   height: 40px; /* 아바타 컨테이너 크기 */
   border-radius: 100%; /* 원형 */
   overflow: hidden;
-  display: block; /* 블록 요소로 */
+  display: block;
   position: absolute; /* post-content-info 기준으로 위치 설정 */
   top: 50%; /* 상단 50% 위치 */
   transform: translateY(-50%); /* 세로 중앙 정렬 */
   left: 0; /* 왼쪽 정렬 */
   background: #ededed; /* 기본 배경색 */
-  /* 기존 styles 유지 */
+  /* 필요 시 border 추가 */
+  /* border: 1px solid #ccc; */
 }
 
 /* 기본 프로필 아이콘 (이미지 없을 때 표시) 스타일 */
-.post-content-info .profile:before {
-  content: "";
-  display: block;
-  position: absolute;
+.post-content-info .profile-photo-placeholder {
   width: 80%;
-  height: 80%;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #cbcbcb;
-  -webkit-mask-image: url(@/assets/images/common/ico_menu_user.svg);
-  mask-image: url(@/assets/images/common/ico_menu_user.svg);
-  -webkit-mask-size: cover;
-  mask-size: cover;
-  /* 기존 styles 유지 */
+    height: 80%;
+    margin: 8px 0 0 4px;
+    background-color: #b6b6b6;
+    -webkit-mask-image: url(@/assets/images/common/ico_menu_user.svg);
+    mask-image: url(@/assets/images/common/ico_menu_user.svg);
+    -webkit-mask-size: cover;
 }
+
+/* .post-content-info .profile-photo-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    color: #cbcbcb;
+    margin-top: 0;
+} */
+/* 기존 .profile:before 유사한 스타일을 여기에 적용 가능 */
+
 
 /* 업로드된 프로필 이미지 (img.avatar-image) 스타일 */
 .post-content-info .profile .avatar-image {
@@ -751,9 +845,8 @@ onUnmounted(() => {
   height: 100%;
   object-fit: cover; /* 비율 유지하며 컨테이너 꽉 채우기 (필요 시 잘림) */
   border-radius: 50%; /* 이미지를 원형으로 만듦 */
-  position: relative; /* 필요 시 z-index 등 사용 */
-  z-index: 2; /* 이미지가 ::before 아이콘 위에 오도록 */
-  /* 기존 styles 유지 */
+  position: relative;
+  z-index: 2; /* 이미지가 Placeholder 아이콘 위에 오도록 */
 }
 
 /* 작성자 이름 스타일 */
@@ -761,53 +854,49 @@ onUnmounted(() => {
   font-size: 15px;
   font-weight: 500;
   color: #222;
-  margin: 0;
-  /* 기존 styles 유지 */
+  margin: 0; /* 기본 마진 제거 */
 }
 /* 작성 시간 및 조회수 정보 스타일 */
 .post-content-info .info {
   font-size: 13px;
   color: #888;
-  margin: 5px 0 0 0;
-  /* 기존 styles 유지 */
+  margin: 5px 0 0 0; /* 이름과의 간격 */
 }
 .post-content-info .info > span {
   display: inline-block;
-  margin-left: 15px;
-  /* 기존 styles 유지 */
+  margin-left: 15px; /* 작성 시간과의 간격 */
 }
 
 /* 게시글 본문 스타일 */
 .content-body {
-  margin-top: 20px;
+  margin-top: 20px; /* 작성자 정보와의 간격 */
   font-size: 16px;
   line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
-  padding: 0 20px;
-  /* 기존 styles 유지 */
+  white-space: pre-wrap; /* 공백 및 줄바꿈 유지 */
+  word-break: break-word; /* 긴 단어 강제 줄바꿈 */
+  padding: 0 20px 10px; /* 좌우 패딩 */
+  /* border-bottom: 1px solid #eee; */
 }
 .content-body .img {
-  text-align: center;
-  margin-bottom: 20px;
-  /* 기존 styles 유지 */
+  text-align: center; /* 이미지 중앙 정렬 */
+  margin-bottom: 20px; /* 내용과의 간격 */
 }
 .content-body .img > img {
-  max-width: 100%;
-  height: auto;
-  display: block;
-  margin: 0 auto;
-  /* 기존 styles 유지 */
+  max-width: 100%; /* 컨테이너 너비를 넘지 않도록 */
+  height: auto; /* 비율 유지 */
+  display: block; /* 블록 요소 */
+  margin: 0 auto; /* 중앙 정렬 */
 }
 
-/* 작성자에게 보이는 수정/삭제 버튼 스타일 */
+/* 게시글 수정/삭제 버튼 영역 스타일 */
 .post-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 40px 20px;
+  justify-content: flex-end; /* 버튼들을 오른쪽으로 정렬 */
+  gap: 10px; /* 버튼들 사이 간격 */
+  padding: 20px; /* 패딩 */
   border-bottom: 1px solid #eee;
-  /* 기존 styles 유지 */
+  margin-top: -1px;
+  background: #fff;
 }
 .post-actions button {
   padding: 8px 15px;
@@ -815,141 +904,178 @@ onUnmounted(() => {
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
-  flex: 1; /* flex: 1을 주면 아이템들이 컨테이너 너비를 균등하게 나눕니다. 필요에 따라 조절하세요. */
+  /* flex: 1;  flex: 1을 주면 아이템들이 컨테이너 너비를 균등하게 나눕니다. 필요에 따라 조절하세요. */
+  min-width: 80px; /* 최소 너비 설정 */
+  text-align: center; /* 텍스트 중앙 정렬 */
+  flex: 1;
 }
 .post-actions .edit-button {
   background-color: #fff;
-  border:1px solid #e1e1e1;
-  /* 기존 styles 유지 */
+  border:1px solid #e1e1e1; /* 테두리 */
+  color: #555; /* 글자색 */
+  transition: background-color 0.2s ease;
+}
+.post-actions .edit-button:hover {
+    background-color: #f0f0f0;
 }
 .post-actions .delete-button {
-  background-color: #a7a7a7; /* 배경색 */
+  background-color: #dc3545; /* 빨간색 배경 */
   color: white; /* 글자색 */
-  /* 기존 styles 유지 */
+  border: 1px solid #dc3545;
+   transition: background-color 0.2s ease;
+}
+.post-actions .delete-button:hover {
+     background-color: #c82333;
 }
 
-/* 댓글 섹션 스타일 */
+
+/* 댓글 섹션 전체 스타일 */
 .comments-section {
-  margin-top: 30px;
-  padding: 0 20px 0 20px;
-  /* 기존 styles 유지 */
+  margin-top: 50px; /* 게시글 본문과의 간격 */
 }
 
+/* 댓글 섹션 제목 스타일 */
 .comments-section h3 {
   font-size: 18px;
   margin-bottom: 15px;
-  padding-bottom: 10px;
+  padding:0 20px 10px;
   border-bottom: 1px solid #eee;
   margin-top: 0;
-  /* 기존 styles 유지 */
 }
 
+/* 댓글 목록 컨테이너 스타일 */
 .comment-list {
-  margin-top: 15px;
-  /* 기존 styles 유지 */
+  margin-top: 15px; /* 제목과의 간격 */
 }
 
+/* 개별 댓글 항목 스타일 */
 .comment-item {
-  border-bottom: 1px solid #eee;
-  padding-bottom: 9px;
-  margin-bottom: 15px;
-  /* 기존 styles 유지 */
+  border-bottom: 1px solid #eee; /* 하단 구분선 */
+  padding-bottom: 15px; /* 하단 패딩 */
+  margin-bottom: 15px; /* 다음 댓글과의 간격 */
 }
 
+/* 답글 항목 스타일 (최상위 댓글과 구분) */
 .comment-item.is-reply {
-  padding: 15px;
-  background-color: #f9f9f9;
-  border-radius: 5px; /* 하단 보더 제거 및 전체 테두리 약간 둥글게 */
-  border-bottom: 0;
-  margin-bottom: 0; /* 부모 댓글과의 간격 제거 */
-  margin-top: 5px; /* 부모 댓글 본문과의 간격 */
+  padding: 15px; /* 패딩 */
+  background-color: #f9f9f9; /* 배경색 */
+  border-radius: 5px; /* 모서리 둥글게 */
+  border-bottom: 0; /* 하단 보더 제거 */
+  margin-bottom: 0; /* 다음 답글 또는 최상위 댓글과의 간격 제거 */
+  margin-top: 10px; /* 부모 댓글 본문과의 간격 */
 }
-.comment-item.is-reply .comment-text{
-  margin-bottom: 0; /* 답글 텍스트 하단 마진 제거 */
+.comment-item.is-reply .comment-text {
+    margin-top: 5px; /* 답글 텍스트와 작성자 정보와의 간격 */
+    margin-bottom: 0; /* 답글 텍스트 하단 마진 제거 */
+    padding: 0;
 }
+.comment-item.is-reply .comment-author{
+  padding: 0;
+}
+
+/* 댓글/답글 작성자 정보 스타일 */
 .comment-author {
   font-weight: bold;
-  margin-bottom: 5px;
+  margin-bottom: 5px; /* 텍스트와의 간격 */
   color: #333;
   font-size: 14px;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  /* 기존 styles 유지 */
+  align-items: center; /* 세로 중앙 정렬 */
+  gap: 10px; /* 이름과 정보 사이 간격 */
+  padding: 0 20px;
 }
 
+/* 댓글/답글 텍스트 스타일 */
 .comment-text {
-  margin-bottom: 8px;
+  margin-top: 5px; /* 작성자 정보와의 간격 */
+  /* margin-bottom: 8px;*/
   line-height: 1.5;
   color: #555;
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin-top: 7px;
-  /* 기존 styles 유지 */
+  white-space: pre-wrap; /* 공백 및 줄바꿈 유지 */
+  word-break: break-word; /* 긴 단어 강제 줄바꿈 */
+  padding: 0 20px;
 }
 
+/* 댓글/답글 정보 (작성 시간, 액션 버튼) 스타일 */
 .comment-info {
   font-size: 12px;
   color: #888;
-  text-align: right;
+  text-align: right; /* 오른쪽 정렬 */
   display: flex;
-  justify-content: flex-end;
-  gap: 5px;
-  align-items: center;
-  /* 기존 styles 유지 */
+  justify-content: flex-end; /* 오른쪽 끝 정렬 */
+  gap: 5px; /* 버튼들 사이 간격 */
+  align-items: center; /* 세로 중앙 정렬 */
+  flex-wrap: wrap; /* 공간 부족 시 줄바꿈 */
 }
 .comment-info > span:first-child {
-  margin-right: 10px;
+  margin-right: auto; /* 작성 시간과 버튼 그룹 사이에 최대한 공간 확보 */
   font-weight: normal;
-  /* 기존 styles 유지 */
+  white-space: nowrap; /* 작성 시간 줄바꿈 방지 */
 }
+
 /* 답글 달기, 수정, 삭제 버튼 공통 스타일 */
 .comment-info .action-button {
   background: none;
   border: 1px solid #ccc;
-  padding: 2px 6px;
+  padding: 0px 6px 1px;
   font-size: 12px;
   cursor: pointer;
   border-radius: 4px;
   color: #555;
   transition: all 0.2s ease;
-  /* 기존 styles 유지 */
 }
 .comment-info .action-button:hover {
   background-color: #eee;
-  /* 기존 styles 유지 */
 }
 
 /* 답글 버튼 */
 .comment-info .reply-button {
-  /* 기존 styles 유지 */
+  color: #007bff; /* 파란색 글자색 */
+  border-color: #007bff; /* 파란색 테두리 */
+}
+.comment-info .reply-button:hover {
+    background-color: #007bff;
+    color: white;
 }
 /* 수정 버튼 */
 .comment-info .edit-comment-button {
-  color: rgb(19, 177, 56);
-  /* 기존 styles 유지 */
+  color: rgb(19, 177, 56); /* 녹색 계열 */
+  border-color: rgb(19, 177, 56);
+}
+.comment-info .edit-comment-button:hover {
+     background-color: rgb(19, 177, 56);
+     color: white;
 }
 /* 삭제 버튼 */
 .comment-info .delete-comment-button {
-  color: #c82333;
-  /* 기존 styles 유지 */
+  color: #dc3545; /* 빨간색 */
+  border-color: #dc3545;
+}
+.comment-info .delete-comment-button:hover {
+    background-color: #dc3545;
+    color: white;
 }
 
+
+/* 댓글이 없을 때 메시지 스타일 */
 .no-comments-message {
   text-align: center;
   color: #b9b9b9;
   font-style: italic;
-  padding: 20px 0;
+  padding: 20px 0 40px;
   border-bottom: 1px solid #eee;
-  /* 기존 styles 유지 */
 }
 
+/* 댓글 작성 안내 메시지 (로그인 안 한 사용자에게 표시) */
 .login-prompt {
   margin-top: 15px;
   font-style: italic;
   color: #777;
-  /* 기존 styles 유지 */
+  text-align: center; /* 중앙 정렬 */
+  padding-bottom: 20px; /* 하단 패딩 */
+  border-bottom: 1px solid #eee; /* 하단 구분선 */
 }
+
 
 /* 댓글/답글 입력 폼 (최상위, 답글, 수정 공통) */
 .add-comment-form,
@@ -957,34 +1083,27 @@ onUnmounted(() => {
   margin-top: 15px;
   display: flex;
   gap: 10px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #eee;
-  flex-direction: column; /* 세로 배열 */
-  /* 기존 styles 유지 */
+  padding: 0 20px;
 }
 
 .add-comment-form textarea,
 .edit-comment-form textarea {
-  flex-grow: 1;
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 4px;
-  resize: vertical;
-  min-height: 60px;
-  box-sizing: border-box;
+  resize: vertical; /* 세로 방향으로만 크기 조절 가능 */
+  min-height: 60px; /* 최소 높이 */
+  box-sizing: border-box; /* 패딩 및 보더 포함 */
   font-size: 14px;
-  width: 100%; /* 너비 100% */
-  /* 기존 styles 유지 */
+  width: auto; /* 부모 요소 너비에 맞춤 */
+  flex: 1;
 }
 
-/* 입력 폼 액션 (버튼 그룹) */
-.add-comment-form .form-actions,
-.edit-comment-form .form-actions {
+/* 폼 내 액션 버튼 그룹 스타일 */
+.form-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  width: 100%; /* 너비 100% */
-  /* 기존 styles 유지 */
+  justify-content: flex-end; /* 버튼들을 오른쪽으로 정렬 */
+  gap: 10px; /* 버튼들 사이 간격 */
 }
 
 .add-comment-form button,
@@ -995,21 +1114,31 @@ onUnmounted(() => {
   cursor: pointer;
   font-size: 14px;
   color: #fff;
-  background: #357ae8;
-  /* 기존 styles 유지 */
+  background: #007bff;
 }
 
+/* 폼 내 첫 번째 버튼 (주로 '작성' 또는 '저장') */
 .add-comment-form button:first-child,
 .edit-comment-form button:first-child {
-  background-color: #007bff;
+  background-color: #007bff; /* 파란색 배경 */
   color: white;
-  /* 기존 styles 유지 */
+   transition: background-color 0.2s ease;
 }
+.add-comment-form button:first-child:hover,
+.edit-comment-form button:first-child:hover {
+    background-color: #0056b3;
+}
+
+/* 취소 버튼 스타일 */
 .add-comment-form .cancel-button,
 .edit-comment-form .cancel-button {
-  background-color: #ddd;
-  color: #333;
-  /* 기존 styles 유지 */
+  background-color: #ddd; /* 회색 배경 */
+  color: #333; /* 어두운 글자색 */
+   transition: background-color 0.2s ease;
+}
+.add-comment-form .cancel-button:hover,
+.edit-comment-form .cancel-button:hover {
+    background-color: #ccc;
 }
 
 /* 답글 입력/수정 폼 (nested) 스타일 */
@@ -1017,26 +1146,27 @@ onUnmounted(() => {
 .edit-comment-form.nested {
   margin-top: 10px;
   padding: 15px;
-  background-color: #eef7ff;
-  border: 0;
+  background-color: #eef7ff; /* 연한 파란색 배경 */
+  border: 0; /* 보더 제거 */
   border-radius: 7px;
-  /* 기존 styles 유지 */
+  width: auto;
+  margin: 10px 20px 0;
 }
 
-/* 답글 목록 (nested) 스타일 */
+/* 답글 목록 컨테이너 스타일 */
 .replies-list {
-    margin-top: 10px; /* 부모 댓글과의 간격 */
-    padding-left: 20px; /* 들여쓰기 */
+    margin-top: 10px; /* 부모 댓글 본문과의 간격 */
+    padding: 0 20px;
+    border-left: 2px solid #eee; /* 들여쓰기 시 시각적 구분선 */
 }
 
 /* 답글 항목 스타일 (comment-item.is-reply)는 위에 정의되어 있습니다. */
 
-/* 답글 표시 화살표 */
+/* 답글 표시 화살표 스타일 */
 .reply-indicator {
   margin-right: 5px;
   font-weight: bold;
-  color: #007bff;
-  /* 기존 styles 유지 */
+  color: #007bff; /* 파란색 */
 }
 
 /* 로딩 및 찾을 수 없음 메시지 스타일 */
@@ -1046,6 +1176,5 @@ onUnmounted(() => {
   font-size: 18px;
   color: #777;
   margin-top: 50px;
-  /* 기존 styles 유지 */
 }
 </style>

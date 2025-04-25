@@ -1,8 +1,7 @@
 <template>
   <div class="splash-screen">
-    <video autoplay loop muted class="background-video">
+    <video id="mediaVideo" class="background-video" autoplay="" muted="" preload="auto" loop="" playsinline="" style="translate: none; rotate: none; scale: none; transform: translate(0px, 0px);">
       <source src="@/assets/movie/bg_splash.mp4" type="video/mp4">
-      Your browser does not support the video tag.
     </video>
     <div class="content">
       <h1>Route Finding</h1>

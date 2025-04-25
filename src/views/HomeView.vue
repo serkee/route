@@ -140,13 +140,12 @@ onMounted(async () => {
 
 <style scoped>
 .container {
-    padding: 0 20px;
+    /* padding: 0 20px; */
     box-sizing: border-box;
 }
 
 .content{
     width: 100%;
-    padding-top: 20px;
 }
 
 .titWrap{
@@ -175,7 +174,7 @@ onMounted(async () => {
 }
 
 .list + .titWrap{
-    margin-top: 40px;
+    margin-top: 30px;
 }
 
 .list{
@@ -199,14 +198,14 @@ onMounted(async () => {
     flex-shrink: 0;
     display: inline-block;
     vertical-align: top;
-    width: 150px;
-    height: 150px;
-    margin-right: 15px;
+    width: 130px;
+    height: 130px;
+    margin-right: 10px;
     border: 1px solid #eee;
-    border-radius: 8px;
+    /* border-radius: 8px; */
     overflow: hidden;
     background-color: #fff;
-    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+    /* box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1); */
     white-space: normal;
     padding: 0;
 }
@@ -279,19 +278,4 @@ onMounted(async () => {
     margin: 0;
 }
 
-.btn-feed{
-    position: fixed;
-    bottom: 70px;
-    right: 15px;
-    height: 50px;
-    background: rgb(19, 177, 56);
-    border: 0;
-    font-size: 20px;
-    color: #fff;
-    padding: 0 20px;
-    border-radius: 25px;
-    cursor: pointer;
-    box-shadow: 3px 3px 3px rgba(0, 0, 0, .2);
-    z-index: 10;
-}
 </style>
