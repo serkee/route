@@ -1,157 +1,155 @@
-// src/store/user.js
+// src/store/user.js - 수정된 코드
 
+import { ref, computed } from 'vue'; // Pinia setup store에서는 ref, computed 사용
 import { defineStore } from 'pinia';
-// 'auth'는 onAuthStateChanged에, 'db'는 firestore 함수에 사용됩니다.
 import { auth, db } from '@/firebase';
-
-// userStore 내에서 실제로 사용되는 Firebase Auth 함수만 임포트합니다.
 import { onAuthStateChanged } from 'firebase/auth';
-
-// userStore 내에서 실제로 사용되는 Firestore 함수만 임포트합니다.
 import { doc, getDoc } from 'firebase/firestore';
 
-// userStore 내에서 사용되지 않는 모든 Firebase Storage 함수와
-// updateProfile, signOut, setDoc 함수 임포트는 제거합니다.
-// import { updateProfile, signOut } from 'firebase/auth'; // <-- 이 줄은 제거합니다.
-// import { setDoc } from 'firebase/firestore'; // <-- 이 줄은 제거합니다.
-// import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'; // <-- 이 줄은 제거합니다.
-
-
-// Helper to create a promise that resolves when auth state is ready
-const authReadyPromise = new Promise((resolve) => {
-  console.log("[userService] 인증 상태 변경 리스너 설정.");
-  // onAuthStateChanged 함수와 auth 인스턴스 사용
-  const unsubscribe = onAuthStateChanged(auth, (user) => {
-    console.log("[userService] 인증 리스너: 사용자 로그인 상태 확인 및 스토어 설정.");
-    resolve(user);
-    unsubscribe();
-    console.log("[userService] authReadyPromise resolved.");
-  });
-   console.log("[userService] onAuthStateChanged 리스너 등록 완료.");
+// 초기 인증 상태 파악 완료를 추적하기 위한 변수와 Promise
+let initialAuthStateResolved = false;
+let authReadyPromiseResolve;
+const authReadyPromise = new Promise(resolve => {
+  authReadyPromiseResolve = resolve;
 });
 
+export const useUserStore = defineStore('user', () => {
+  // State: ref()를 사용하여 상태 변수 선언
+  const uid = ref(null);
+  const email = ref(null);
+  const name = ref(null);
+  const isAuthenticated = ref(false);
+  const isAdmin = ref(false);
+  const profileImageUrl = ref(null);
 
-export const useUserStore = defineStore('user', {
-  state: () => ({
-    uid: null,
-    email: null,
-    name: null,
-    isAuthenticated: false,
-    isAdmin: false,
-    profileImageUrl: null,
-  }),
+  // Getters: computed()를 사용하여 게터 정의
+  const isCurrentUserAdmin = computed(() => isAuthenticated.value && isAdmin.value);
 
-  getters: {
-    isCurrentUserAdmin: (state) => state.isAuthenticated && state.isAdmin,
-  },
+  // Actions (또는 Setup Store의 함수) 정의
+  const setUser = async (user) => {
+    console.log("[userStore] setUser 시작 UID:", user ? user.uid : "null");
 
-  actions: {
-    // 이 액션은 사용자가 로그인/회원가입하거나 인증 상태가 변경될 때 호출됩니다.
-    // Firebase Auth User 객체를 인자로 받습니다.
-    async setUser(user) {
-      console.log("[userStore] setUser 시작 UID:", user ? user.uid : "null");
+    if (user) {
+      // 사용자가 로그인됨
+      uid.value = user.uid;
+      isAuthenticated.value = true; // 로그인 상태 설정
 
-      if (user) {
-        // 사용자가 로그인됨
-        this.uid = user.uid;
-
-        // Firebase Auth 사용자 객체에서 이메일 가져오기 시도
-        this.email = user.email;
-        console.log("[userStore] DEBUG - Auth userData (setUser 시작):", { uid: user.uid, email: user.email, name: user.displayName, profileImageUrl: user.photoURL });
-
-        this.isAuthenticated = true;
-
-        // Firestore에서 추가 사용자 데이터 가져오기
-        // doc 함수와 db 인스턴스 사용
-        const userDocRef = doc(db, 'users', user.uid);
-        try {
-          console.log("[userStore] Firestore에서 사용자 문서 조회 시도:", userDocRef.path);
-          // getDoc 함수 사용
-          const userDocSnap = await getDoc(userDocRef);
-
-          if (userDocSnap.exists()) {
-            const firestoreUserData = userDocSnap.data();
-             console.log("[userStore] Firestore 사용자 문서 가져옴:", firestoreUserData);
-
-            // 스토어 상태 업데이트 (Firestore 데이터와 fallback 사용)
-            // Auth 이메일이 없거나 falsy 할 경우 Firestore 이메일 사용
-            if (!this.email && firestoreUserData.email) {
-                 this.email = firestoreUserData.email;
-                 console.log("[userStore] 이메일 결정: Firestore email 사용", this.email);
-            } else if (this.email) {
-                 console.log("[userStore] 이메일 결정: Auth user.email 사용", this.email);
-            } else {
-                 console.warn("[userStore] 이메일 정보 없음 (Auth 및 Firestore 모두)");
-            }
-
-            this.name = firestoreUserData.username || user.displayName || this.email || user.uid || '사용자';
-            console.log("[userStore] 이름 결정:", this.name);
-
-            this.isAdmin = firestoreUserData.isAdmin || false;
-             console.log(`[userStore] 사용자 ${user.uid} 관리자 여부:`, this.isAdmin);
+      // Auth 객체에서 기본 정보 가져오기
+      email.value = user.email;
+      console.log("[userStore] DEBUG - Auth userData (setUser 시작):", { uid: user.uid, email: user.email, name: user.displayName, profileImageUrl: user.photoURL });
 
 
-            this.profileImageUrl = firestoreUserData.photoURL || user.photoURL || null;
-             console.log("[userStore] 이미지 결정:", this.profileImageUrl ? "Firestore/Auth photoURL 사용" : "이미지 없음");
-             if(this.profileImageUrl) console.log("  URL:", this.profileImageUrl);
+      // Firestore에서 추가 사용자 데이터 가져오기 (비동기)
+      const userDocRef = doc(db, 'users', user.uid);
+      try {
+        console.log("[userStore] Firestore에서 사용자 문서 조회 시도:", userDocRef.path);
+        const userDocSnap = await getDoc(userDocRef);
 
+        if (userDocSnap.exists()) {
+          const firestoreUserData = userDocSnap.data();
+          console.log("[userStore] Firestore 사용자 문서 가져옴:", firestoreUserData);
 
-          } else {
-            console.warn(`[userStore] 사용자 문서 (ID: ${user.uid})가 Firestore에 없습니다.`);
-             this.name = user.displayName || this.email || user.uid || '새 사용자'; // 문서 없으면 fallback 이름
-             this.isAdmin = false; // 문서 없으면 관리자 아님
-             this.profileImageUrl = user.photoURL || null; // 문서 없으면 Auth photoURL 사용
-             // 이메일은 이미 설정 시도됨
+          // 스토어 상태 업데이트 (Firestore 데이터 우선, 없으면 Auth 데이터 사용)
+          email.value = firestoreUserData.email || user.email || null; // Firestore 이메일 또는 Auth 이메일
+          console.log("[userStore] 이메일 결정:", email.value);
 
-             console.log("[userStore] 이름 결정 (문서 없음):", this.name);
-             console.log(`[userStore] 사용자 ${user.uid} 관리자 여부 (문서 없음):`, this.isAdmin);
-             console.log("[userStore] 이미지 결정 (문서 없음):", this.profileImageUrl ? "Auth photoURL 사용" : "이미지 없음");
+          name.value = firestoreUserData.username || user.displayName || email.value || user.uid || '사용자'; // Firestore 닉네임 또는 Auth displayName 등
+          console.log("[userStore] 이름 결정:", name.value);
 
-          }
-        } catch (firestoreError) {
-          console.error("[userStore] Firestore 사용자 문서 가져오기/생성 오류:", firestoreError);
-           // Firestore 조회 실패 시 fallback
-           this.name = user.displayName || user.email || user.uid || '오류 사용자';
-           this.isAdmin = false;
-           this.profileImageUrl = user.photoURL || null;
-           this.email = this.email || user.email || null; // 이메일도 fallback
-           console.log("[userStore] 이름 결정 (Firestore 오류):", this.name);
-           console.log(`[userStore] 사용자 ${user.uid} 관리자 여부 (Firestore 오류):`, this.isAdmin);
-           console.log("[userStore] 이미지 결정 (Firestore 오류):", this.profileImageUrl ? "Auth photoURL 사용" : "이미지 없음");
+          isAdmin.value = firestoreUserData.isAdmin || false; // Firestore isAdmin 또는 false
+          console.log(`[userStore] 사용자 ${user.uid} 관리자 여부:`, isAdmin.value);
+
+          profileImageUrl.value = firestoreUserData.photoURL || user.photoURL || null; // Firestore photoURL 또는 Auth photoURL
+          console.log("[userStore] 이미지 결정:", profileImageUrl.value ? "Firestore/Auth photoURL 사용" : "이미지 없음");
+          if(profileImageUrl.value) console.log("  URL:", profileImageUrl.value);
+
+        } else {
+          console.warn(`[userStore] 사용자 문서 (ID: ${user.uid})가 Firestore에 없습니다. 기본 정보 사용.`);
+          // Firestore 문서가 없을 경우 Auth 정보나 기본값 사용
+          name.value = user.displayName || user.email || user.uid || '새 사용자';
+          isAdmin.value = false;
+          profileImageUrl.value = user.photoURL || null;
+          // email.value는 이미 설정됨
+          console.log("[userStore] 이름 결정 (문서 없음):", name.value);
+          console.log(`[userStore] 사용자 ${user.uid} 관리자 여부 (문서 없음):`, isAdmin.value);
+          console.log("[userStore] 이미지 결정 (문서 없음):", profileImageUrl.value ? "Auth photoURL 사용" : "이미지 없음");
         }
-
-      } else {
-        // 사용자가 로그아웃됨
-        this.clearUser(); // clearUser 액션 사용하여 상태 초기화
-         console.log("[userStore] setUser 완료: 사용자 로그아웃 상태.");
-         return; // user가 null이면 함수 종료
+      } catch (firestoreError) {
+        console.error("[userStore] Firestore 사용자 문서 가져오기 오류:", firestoreError);
+        // Firestore 조회 실패 시 Auth 정보나 기본값 사용
+        name.value = user.displayName || user.email || user.uid || '오류 사용자';
+        isAdmin.value = false;
+        profileImageUrl.value = user.photoURL || null;
+        email.value = email.value || user.email || null; // 이메일도 fallback
+        console.log("[userStore] 이름 결정 (Firestore 오류):", name.value);
+        console.log(`[userStore] 사용자 ${user.uid} 관리자 여부 (Firestore 오류):`, isAdmin.value);
+        console.log("[userStore] 이미지 결정 (Firestore 오류):", profileImageUrl.value ? "Auth photoURL 사용" : "이미지 없음");
       }
 
-        // 최종 스토어 상태 로깅 (검증용)
-        console.log("[userStore] setUser 완료. 현재 스토어 상태:", {
-            uid: this.uid,
-            name: this.name,
-            isAuthenticated: this.isAuthenticated,
-            isAdmin: this.isAdmin,
-            profileImageUrl: this.profileImageUrl,
-            email: this.email // 최종 이메일 값 포함
-        });
-    },
-
-    // 로그아웃 또는 초기 비인증 상태 시 사용자 상태 초기화 액션
-    clearUser() {
-      this.uid = null;
-      this.email = null;
-      this.name = null;
-      this.isAuthenticated = false;
-      this.isAdmin = false;
-      this.profileImageUrl = null;
-       console.log("[userStore] clearUser 완료. 스토어 상태 초기화.");
-    },
-
-    // authReadyPromise 노출
-    get authReadyPromise() {
-      return authReadyPromise;
+    } else {
+      // 사용자가 로그아웃됨
+      clearUser(); // clearUser 함수 사용하여 상태 초기화
+      console.log("[userStore] setUser 완료: 사용자 로그아웃 상태.");
     }
-  },
+
+    // 최종 스토어 상태 로깅 (검증용)
+    console.log("[userStore] setUser 완료. 현재 스토어 상태:", {
+      uid: uid.value,
+      name: name.value,
+      isAuthenticated: isAuthenticated.value,
+      isAdmin: isAdmin.value,
+      profileImageUrl: profileImageUrl.value,
+      email: email.value
+    });
+  };
+
+  // 로그아웃 또는 비인증 상태 시 사용자 상태 초기화 함수
+  const clearUser = () => {
+    uid.value = null;
+    email.value = null;
+    name.value = null;
+    isAuthenticated.value = false; // 비인증 상태 설정
+    isAdmin.value = false;
+    profileImageUrl.value = null;
+    console.log("[userStore] clearUser 완료. 스토어 상태 초기화.");
+  };
+
+  // Firebase Auth 상태 변경 리스너 설정 (스토어 초기화 시 실행)
+  // 이 리스너는 Firebase 인증 상태가 변경될 때마다(앱 시작, 로그인, 로그아웃 등) 실행됨
+  onAuthStateChanged(auth, async (user) => {
+    console.log("[userStore] onAuthStateChanged 리스너 실행. User:", user ? user.uid : "null");
+    await setUser(user); // Firebase에서 받은 user 객체로 스토어 상태 업데이트
+
+    // onAuthStateChanged 리스너가 처음 실행되어 초기 인증 상태를 파악했을 때 promise 해결
+    if (!initialAuthStateResolved) {
+        initialAuthStateResolved = true;
+        console.log("[userStore] initialAuthStateResolved = true. authReadyPromise 해결.");
+        authReadyPromiseResolve(user); // Promise 해결
+    }
+     console.log("[userStore] onAuthStateChanged 리스너 완료.");
+  });
+
+
+  // authReadyPromise를 반환하는 함수 (라우터 가드 등에서 await 가능)
+  const getAuthReadyPromise = () => authReadyPromise;
+
+
+  // Pinia 스토어에서 외부로 노출할 상태, 게터, 함수들을 반환합니다.
+  return {
+    // state
+    uid,
+    email,
+    name,
+    isAuthenticated, // 라우터 가드에서 이 값을 확인하게 됩니다.
+    isAdmin,
+    profileImageUrl,
+
+    // getters
+    isCurrentUserAdmin,
+
+    // actions (setup store에서는 일반 함수)
+    setUser, // 필요한 경우 외부에서도 호출 가능
+    clearUser, // 필요한 경우 외부에서도 호출 가능
+    getAuthReadyPromise // 초기 인증 상태 대기용 함수
+  };
 });
