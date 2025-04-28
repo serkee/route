@@ -2,7 +2,7 @@
   <div id="app">
     <router-view />
 
-    <nav v-if="userStore.isAuthenticated">
+    <nav v-if="userStore.isAuthenticated && !isAdminRoute">
       <router-link to="/home">홈</router-link> |
       <router-link to="/map">지도</router-link> |
       <router-link to="/user">사용자</router-link> |
@@ -33,6 +33,16 @@ import { useRoute } from 'vue-router';
 
 const userStore = useUserStore();
 const route = useRoute();
+
+const isAdminRoute = computed(() => {
+  // 현재 라우트의 path가 '/admin'으로 시작하는지 확인합니다.
+  return route.path.startsWith('/admin');
+
+  // 또는 라우트 메타 필드를 사용한다면:
+  // return route.matched.some(record => record.meta.requiresAdmin);
+  // 이 경우 AdminView 뿐만 아니라 그 하위 라우트 모두 requiresAdmin: true를 상속받아야 합니다.
+  // path.startsWith('/admin') 방법이 일반적으로 더 단순합니다.
+});
 
 // '게시판' 항목이 활성화되어야 하는지 계산하는 Computed 속성
 // 라우트 경로가 '/board'로 시작하는지 확인
