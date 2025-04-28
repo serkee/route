@@ -13,96 +13,76 @@
 </template>
 
 <script>
+// Vue Router 사용을 위해 필요합니다. (Options API에서는 this.$router로 접근 가능)
+// import { useRouter } from 'vue-router'; // setup script에서 사용
+
 export default {
   data() {
     return {
       map: null,
-      mapCenter: { lat: 35.105696, lng: 129.042857 },
-      bands: {
-        lat: 35.106187,
-        lng: 129.042943,
-      },
-      bands2: {
-        lat: 35.105556,
-        lng: 129.04393,
-      },
+      // 예시로 사용할 마커 위치 데이터. 실제 애플리케이션에서는 데이터베이스 등에서 불러올 것입니다.
+      // 각 위치에 고유 ID를 추가했습니다.
+      mapCenter: { lat: 35.105696, lng: 129.042857, id: 'route-ce', label: 'ce' },
+      bands: { lat: 35.106187, lng: 129.042943, id: 'route-bands', label: '1' },
+      bands2: { lat: 35.105556, lng: 129.04393, id: 'route-bands2', label: '2' },
       isScriptLoaded: false // 스크립트 로딩 상태 추적
     };
   },
   mounted() {
     // 컴포넌트 마운트 시 Google Maps 스크립트 로딩 및 지도 초기화 시도
-    // 이 시점에는 <div id="map"> 요소가 DOM에 존재합니다.
-
     if (window.google && window.google.maps) {
-      // Google Maps 객체가 이미 존재하면 (스크립트가 이미 로딩되었으면) 바로 지도 초기화
       console.log("Google Maps script already loaded. Initializing map directly.");
       this.initMap();
     } else if (!this.isScriptLoaded) {
-       // Google Maps 객체가 없으면 (스크립트가 로딩되지 않았으면) 스크립트 동적 로딩
-       console.log("Google Maps script not loaded. Loading script.");
-       this.loadGoogleMapsScript();
-       this.isScriptLoaded = true; // 로딩 시작 상태 표시
+        console.log("Google Maps script not loaded. Loading script.");
+        this.loadGoogleMapsScript();
+        this.isScriptLoaded = true; // 로딩 시작 상태 표시
     }
-     // else: isScriptLoaded가 true인데 window.google이 없으면 로딩 중이거나 오류 상태일 수 있음
-     // window.initMap = this.initMap; // <-- 이 코드는 이제 필요 없습니다.
   },
-   // 컴포넌트가 DOM에서 제거될 때 (페이지 이동 등) 리소스 정리
   unmounted() {
-    // 필요한 경우 지도 객체 또는 이벤트 리스너 정리
+    // 컴포넌트가 DOM에서 제거될 때 리소스 정리
     if (this.map) {
-        // google.maps.event.clearInstanceListeners(this.map); // 특정 리스너 제거 필요시
-        // this.map = null; // 메모리 누수 방지를 위해 null 할당 (필요에 따라)
+        // 필요에 따라 지도 객체 또는 이벤트 리스너 정리
     }
-     // window.initMap 전역 함수 할당 해제 코드는 이제 필요 없습니다.
-     // if (window.initMap === this.initMap) {
-     //     delete window.initMap;
-     // }
   },
   methods: {
     // Google Maps SDK 스크립트를 동적으로 로드하는 함수
     loadGoogleMapsScript() {
-       console.log("Adding Google Maps script tag.");
-       const script = document.createElement('script');
-       // ** 중요: &callback=initMap 파라미터를 제거합니다. **
-       script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBgxcD24z8xplfsyBObemCNZH-olShcwyY&libraries=places`; // 필요한 라이브러리 추가 가능
-       script.async = true;
-       script.defer = true;
+        console.log("Adding Google Maps script tag.");
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBgxcD24z8xplfsyBObemCNZH-olShcwyY&libraries=places`; // API 키 및 필요한 라이브러리 (places 등)
+        script.async = true;
+        script.defer = true;
 
-       // ** 중요: 스크립트 로딩이 완료되면 이 콜백 함수가 실행됩니다. **
-       script.onload = () => {
-           console.log("Google Maps script loaded. Checking for google.maps availability.");
-           if (window.google && window.google.maps) {
+        script.onload = () => {
+            console.log("Google Maps script loaded. Checking for google.maps availability.");
+            if (window.google && window.google.maps) {
                 console.log("google.maps is available. Initializing map from onload.");
                 this.initMap(); // 스크립트 로딩 완료 후 컴포넌트의 initMap 호출
-           } else {
+            } else {
                 console.error("Google Maps script loaded, but google.maps object not available.");
-                // 추가적인 오류 처리 로직
-           }
-       };
+            }
+        };
 
-       // 스크립트 로딩 실패 시 대체 로직 (선택 사항)
-       script.onerror = () => {
-           console.error("Failed to load Google Maps script.");
-           // 사용자에게 알림 또는 대체 콘텐츠 표시
-       };
+        script.onerror = () => {
+            console.error("Failed to load Google Maps script.");
+        };
 
-       document.head.appendChild(script);
+        document.head.appendChild(script);
     },
-    // 이 initMap 함수는 스크립트 로딩 완료 후 컴포넌트 코드에 의해 호출됩니다.
-    // 더 이상 Google Maps API가 직접 호출하지 않습니다.
+    // 지도 초기화 함수
     initMap() {
       console.log("initMap 함수 실행 시작.");
       const container = document.getElementById("map");
 
-      // 컨테이너 요소가 유효한지 다시 한 번 확인 (SPA 환경에서 중요)
       if (!container) {
           console.error("Map container element #map not found.");
           return;
       }
-       console.log("Map container found. Initializing google.maps.Map.");
+        console.log("Map container found. Initializing google.maps.Map.");
 
       const options = {
-        center: new window.google.maps.LatLng( // window.google.maps 명시
+        center: new window.google.maps.LatLng(
           this.mapCenter.lat,
           this.mapCenter.lng
         ),
@@ -116,48 +96,61 @@ export default {
       };
 
       try {
-         this.map = new window.google.maps.Map(container, options); // window.google.maps 명시
-         console.log("Google Map initialized successfully.", this.map);
+          this.map = new window.google.maps.Map(container, options);
+          console.log("Google Map initialized successfully.", this.map);
 
-         // 지도 크기 조정 이벤트 발생 (초기 렌더링 문제 해결에 도움될 수 있음)
-         if(window.google && window.google.maps && window.google.maps.event) { // 이벤트 객체 사용 가능 여부 확인
-             window.google.maps.event.addListenerOnce(this.map, 'idle', () => {
+          // 지도 크기 조정 이벤트 발생 (초기 렌더링 문제 해결에 도움될 수 있음)
+          if(window.google && window.google.maps && window.google.maps.event) {
+              window.google.maps.event.addListenerOnce(this.map, 'idle', () => {
                   console.log("Map idle. Triggering resize.");
-                  window.google.maps.event.trigger(this.map, 'resize'); // window.google.maps 명시
-                  this.map.setCenter(new window.google.maps.LatLng(this.mapCenter.lat, this.mapCenter.lng)); // window.google.maps 명시
+                  window.google.maps.event.trigger(this.map, 'resize');
+                  this.map.setCenter(new window.google.maps.LatLng(this.mapCenter.lat, this.mapCenter.lng));
                   console.log("Map resize triggered and center reset.");
-             });
-         }
+              });
+          }
 
-
-         // 지도가 생성된 후 마커를 설정합니다.
-         this.setMarker(this.mapCenter, "ce");
-         this.setMarker(this.bands, "1");
-         this.setMarker(this.bands2, "2");
+          // ✅✅✅ 지도가 생성된 후 마커를 설정합니다. 각 마커에 ID를 함께 전달합니다. ✅✅✅
+          this.setMarker(this.mapCenter, this.mapCenter.label, this.mapCenter.id);
+          this.setMarker(this.bands, this.bands.label, this.bands.id);
+          this.setMarker(this.bands2, this.bands2.label, this.bands2.id);
 
       } catch (error) {
           console.error("Error initializing Google Map:", error);
-          // 지도 초기화 실패 시 사용자에게 알림 또는 대체 UI 표시
       }
-
     },
-    setMarker(Points, Label) {
-      if (this.map && window.google && window.google.maps && window.google.maps.Marker) { // Google Maps 객체 및 Marker 클래스 사용 가능 여부 확인
-          // 변수 할당 없이 바로 마커 객체를 생성합니다.
-          new window.google.maps.Marker({ // window.google.maps.Marker로 명시
-            position: Points,
+    // ✅✅✅ 마커 설정 함수 수정 - routeId 인자 추가 및 클릭 리스너 추가 ✅✅✅
+    setMarker(Points, Label, routeId) {
+      if (this.map && window.google && window.google.maps && window.google.maps.Marker) {
+          const marker = new window.google.maps.Marker({
+            position: new window.google.maps.LatLng(Points.lat, Points.lng), // Points 객체에서 lat, lng 사용
             map: this.map,
             label: {
               text: String(Label),
               color: "#FFF",
             },
+            // ZIndex 등 추가 옵션 가능
           });
+
+          // ✅ 마커에 클릭 리스너 추가
+          window.google.maps.event.addListener(marker, 'click', () => {
+              console.log(`Marker clicked! Label: ${Label}, Route ID: ${routeId}`);
+              this.handleMarkerClick(routeId); // 클릭 시 handleMarkerClick 함수 호출
+          });
+
+          // 필요한 경우 마커 객체를 저장하여 나중에 관리 (예: this.markers.push(marker);)
       } else {
           console.error("Cannot set marker: Map or Google Maps Marker class not available.");
       }
     },
+    // ✅✅✅ 마커 클릭 시 상세 페이지로 이동하는 함수 추가 ✅✅✅
+    handleMarkerClick(routeId) {
+        console.log(`Navigating to route detail for ID: ${routeId}`);
+        // Vue Router를 사용하여 '/route/:id' 형태의 라우트로 이동합니다.
+        // 'routeDetail'은 router/index.js에서 정의할 라우트 이름입니다.
+        this.$router.push({ name: 'routeDetail', params: { id: routeId } });
+        // 또는 경로로 직접 이동: this.$router.push(`/route/${routeId}`);
+    }
   },
-  // ... 나머지 데이터, 스타일 등
 };
 </script>
 

@@ -123,6 +123,7 @@ blockquote,
 q {
 	quotes: none;
 }
+strong{font-weight: bold;}
 
 blockquote:before,
 blockquote:after,
@@ -315,3 +316,6 @@ a[href^="https://maps.google.com/maps"]{display:none !important}
 	display: none;
 }
 .btn-feed{position: fixed; bottom: 60px; right: 15px; height: 50px; background: rgb(19, 177, 56); border: 0;  font-size: 20px; color: #fff; padding: 0 20px 3px; border-radius: 25px; cursor: pointer; box-shadow: 3px 3px 3px rgba(0, 0, 0, .2);}
+
+
+.txt-red{color: #d13f4a;}

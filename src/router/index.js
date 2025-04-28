@@ -21,6 +21,7 @@ import AdminView from '../views/admin/AdminView.vue'; // 관리자 페이지 레
 import UserManagement from '../views/admin/UserManagement.vue'; // 회원 관리 페이지
 import MapManagement from '../views/admin/MapManagement.vue'; // 지도 관리 페이지
 import BoardManagement from '../views/admin/BoardManagement.vue'; // 게시판 관리 페이지
+import RouteDetailView from '../views/RouteDetailView.vue';
 
 // Pinia 스토어 사용을 위해 import
 import { useUserStore } from '@/store/user'; // useUserStore 임포트
@@ -97,6 +98,12 @@ const routes = [
     name: 'forgot-password', // 라우트 이름
     component: ForgotPasswordView, // 임포트한 ForgotPasswordView 컴포넌트 연결
     meta: { requiresAuth: false } // 비밀번호 찾기 페이지는 인증 불필요
+  },
+  {
+    path: '/route/:id', // 경로 ID를 파라미터로 받습니다.
+    name: 'routeDetail', // 라우트 이름 (MapView.vue에서 사용)
+    component: RouteDetailView, // 이 컴포넌트에서 상세 내용을 표시할 것입니다. (새로 만들 예정)
+    props: true // 라우트 파라미터 (id)를 컴포넌트 props로 전달
   },
   {
     path: '/admin', // 관리자 페이지 기본 경로

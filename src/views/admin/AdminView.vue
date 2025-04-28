@@ -5,8 +5,8 @@
         <nav class="admin-nav">
           <ul>
             <li><router-link :to="{ name: 'adminUsers' }">회원 관리</router-link></li>
-            <li><router-link :to="{ name: 'adminMaps' }">지도 관리</router-link></li>
             <li><router-link :to="{ name: 'adminBoards' }">게시판 관리</router-link></li>
+            <li><router-link :to="{ name: 'adminMaps' }">지도 관리</router-link></li>
           </ul>
         </nav>
         </aside>
@@ -47,8 +47,8 @@
   }
   
   .admin-sidebar {
-    width: 250px; /* 왼쪽 메뉴 영역의 너비를 고정합니다. (원하는 너비로 조정) */
-    background-color: #f4f7f6; /* 사이드바 배경색 */
+    width: 180px; /* 왼쪽 메뉴 영역의 너비를 고정합니다. (원하는 너비로 조정) */
+    background-color: #0a2e4d; /* 사이드바 배경색 */
     padding: 20px;
     border-right: 1px solid #dee2e6; /* 내용 영역과의 구분선 */
     overflow-y: auto; /* 메뉴 내용이 길어지면 스크롤바 생성 */
@@ -74,12 +74,13 @@
   
   .admin-nav a {
     text-decoration: none;
-    color: #495057; /* 기본 링크 색상 */
+    color: #fff; /* 기본 링크 색상 */
     font-size: 1.1em;
     display: block; /* 링크 영역을 넓게 */
-    padding: 8px 10px;
+    padding: 8px 10px 8px 20px;
     border-radius: 4px;
     transition: background-color 0.2s ease; /* 호버 효과 */
+    text-align: left;
   }
   
   .admin-nav a:hover {
@@ -88,14 +89,15 @@
   
   .admin-nav a.router-link-active {
     font-weight: bold;
-    color: #007bff; /* 활성 링크 색상 */
-    background-color: #e2e6ea; /* 활성 링크 배경색 */
+    color: #7abaff; /* 활성 링크 색상 */
+    background-color: #284762; /* 활성 링크 배경색 */
   }
   
   .admin-content-area {
     flex-grow: 1; /* 남은 공간을 모두 차지하도록 합니다. */
     padding: 20px 30px; /* 내용 영역 안쪽 여백 */
     overflow-y: auto; /* 내용이 길어지면 스크롤바 생성 */
+    text-align: left;
   }
   
   .admin-content-area h1 {
