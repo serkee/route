@@ -271,10 +271,10 @@ const categoryDisplayNameMap = {
   market: "중고마켓",
 };
 
-// category 값을 받아 한글 표시 이름으로 변환하는 함수
-const getCategoryDisplayName = (categoryValue) => {
+//category값을받아한글표시이름으로변환하는함수
+function getCategoryDisplayName(categoryValue) {
   return categoryDisplayNameMap[categoryValue] || categoryValue;
-};
+}
 
 // 카테고리 목록 페이지로 이동하는 함수
 const goToCategoryList = () => {
@@ -592,25 +592,23 @@ const saveEditedComment = async () => {
        return;
    }
 
-  try {
-    console.log(
-      `댓글 ${commentIdToEdit} 수정 내용 저장 시도. 새로운 내용: "${updatedText}"`
-    );
-    // boardService의 updateComment 함수 호출 (게시글 ID, 댓글 ID, 수정된 내용 전달)
-    // updateComment 함수는 Firestore 문서 업데이트 및 보안 규칙 검사 수행 (boardService에 구현 필요)
-    await updateComment(postId, commentIdToEdit, { text: updatedText }); // <-- boardService에서 구현 필요
+   try {
+  console.log(
+   `댓글 ${commentIdToEdit} 수정 내용 저장 시도. 새로운 내용: "${updatedText}"`
+  );
+  // boardService의 updateComment 함수 호출 (게시글 ID, 댓글 ID, 수정된 내용 전달)
+  // ✅ FIX: 세 번째 인자로 객체 { text: updatedText } 대신 문자열 updatedText 자체를 전달합니다.
+  await updateComment(postId, commentIdToEdit, updatedText); // <-- 수정된 부분
 
-    console.log(`댓글 ${commentIdToEdit} 수정 완료.`);
-    // 수정 완료 후 수정 모드 해제 및 입력 필드 초기화
-    editingCommentId.value = null;
-    editingCommentText.value = "";
+  console.log(`댓글 ${commentIdToEdit} 수정 완료.`);
+  // 수정 완료 후 수정 모드 해제 및 입력 필드 초기화
+  editingCommentId.value = null;
+  editingCommentText.value = "";
 
-    // TODO: 성공 메시지 표시 (선택 사항)
-    // alert('댓글이 수정되었습니다.'); // 실시간 업데이트 리스너 덕분에 화면에 자동으로 반영됩니다.
-  } catch (error) {
-    console.error(`댓글 ${commentIdToEdit} 수정 오류:`, error);
-    alert("댓글 수정 중 오류가 발생했습니다.");
-  }
+ } catch (error) {
+  console.error(`댓글 ${commentIdToEdit} 수정 오류:`, error);
+  alert("댓글 수정 중 오류가 발생했습니다.");
+ }
 };
 
 // 댓글 수정 모드 취소
@@ -664,7 +662,7 @@ const handleDelete = async () => {
     await deletePost(postId); // <-- boardService에서 구현 필요
     console.log("게시글 삭제 완료.");
 
-    alert("게시글이 성공적으로 삭제되었습니다.");
+    // alert("게시글이 성공적으로 삭제되었습니다.");
     // 삭제 성공 후 게시글 목록 페이지로 이동
     router.push("/board");
   } catch (error) {
