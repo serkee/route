@@ -8,9 +8,7 @@ import router from './router';
 // import * as userService from './services/userService'; // <-- 이 임포트는 더 이상 필요하지 않습니다.
 import { useUserStore } from './store/user'; // user 스토어 임포트
 
-// Firebase Auth 상태를 직접 확인하는 경우에만 getAuth가 필요할 수 있습니다.
-// 라우터 가드에서 getAuth를 사용하므로 여기서는 제거 가능합니다.
-// import { getAuth } from 'firebase/auth';
+import '@fortawesome/fontawesome-free/css/all.css'
 
 
 console.log("[main.js] --- 앱 초기화 시작 ---");

@@ -13,7 +13,7 @@
       />
       <div class="image-actions">
         <button class="view-pitch-button">
-          <i class="icon icon-link"></i>
+          <i class="fas fa-link"></i>
           피치보기
         </button>
       </div>
@@ -27,34 +27,45 @@
 
       <ul class="route-details-list">
         <li>
-          <i class="icon icon-location"></i>
-          <span>이름 - {{ routeDetails.name || "정보 없음" }}</span>
+          <i class="fas fa-user"></i>
+          <span>이름</span>
+          <p>{{ routeDetails.name || "정보 없음" }}</p>
         </li>
         <li>
-          <i class="icon icon-file"></i>
-          <span>등반개요 - {{ routeDetails.overview || "정보 없음" }}</span>
+          <i class="fas fa-circle-info"></i>
+          <span>등반개요</span>
+          <p>{{ routeDetails.overview || "정보 없음" }}</p>
         </li>
         <li>
-          <i class="icon icon-climb-style"></i>
-          <span
-            >등반형태 - {{ routeDetails.climbingStyle || "정보 없음" }}</span
-          >
+          <i class="fas fa-stairs"></i>
+          <span>등반형태</span>
+          <p>{{ routeDetails.climbingStyle || "정보 없음" }}</p>
         </li>
         <li>
-          <i class="icon icon-gear"></i>
-          <span>등반장비 - {{ routeDetails.gear || "정보 없음" }}</span>
+          <i class="fas fa-gears"></i>
+          <span>등반장비</span>
+          <p>{{ routeDetails.gear || "정보 없음" }}</p>
         </li>
         <li>
-          <i class="icon icon-difficulty"></i>
-          <span>평균난이도 - {{ routeDetails.difficulty || "정보 없음" }}</span>
+          <i class="fas fa-chart-line"></i>
+          <span>평균난이도</span>
+          <p>{{ routeDetails.difficulty || "정보 없음" }}</p>
         </li>
         <li>
-          <i class="icon icon-book"></i>
-          <span
-            >개척자 - {{ routeDetails.firstAscentParty || "정보 없음" }}</span
-          >
+          <i class="fas fa-book"></i>
+          <span>개척자</span>
+          <p>{{ routeDetails.firstAscentParty || "정보 없음" }}</p>
         </li>
       </ul>
+    </div>
+
+    <div class="pitch-list-section">
+        <ul>
+            <li><button>1.나비처럼</button></li>
+            <li><button>2.노적갈매기</button></li>
+            <li><button>3.마징가방망이</button></li>
+            <li><button>4.웨딩마치</button></li>
+        </ul>
     </div>
   </div>
 </template>
@@ -167,7 +178,7 @@ onMounted(() => {
 }
 
 .route-diagram-img {
-  max-width: 100%;
+  width: 100%;
   height: auto;
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -197,6 +208,13 @@ onMounted(() => {
 .view-pitch-button .icon {
   margin-right: 5px;
 }
+.view-pitch-button .fas {
+  margin-right: 5px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+}
 
 .route-info-section {
   margin-top: 20px;
@@ -220,7 +238,7 @@ onMounted(() => {
 
 .route-details-list li {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   font-size: 1em;
   color: #555;
   line-height: 1.5;
@@ -228,12 +246,21 @@ onMounted(() => {
   padding: 10px 0;
 }
 
-.route-details-list li .icon {
-  margin-right: 10px;
+.route-details-list li .fas {
+  margin: 5px 10px 0 0;
   flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: top;
+  justify-content: center;
 }
 
 .route-details-list li span {
+  width: 90px;
+  color: #999;
+}
+.route-details-list li p {
   flex-grow: 1;
   word-break: break-word;
 }
@@ -246,4 +273,10 @@ onMounted(() => {
   background-repeat: no-repeat;
   background-position: center;
 }
+.pitch-list-section{margin-top: 30px; width: 100%;}
+.pitch-list-section > ul{}
+.pitch-list-section > ul > li{}
+.pitch-list-section > ul > li + li{margin-top: 10px;}
+.pitch-list-section > ul > li > button{padding: 10px 20px; border: 1px solid #999; border-radius: 25px; width: 100%; background: #fff; text-align: left; font-size: 16px;}
+.pitch-list-section > ul > li > button:hover{border-color:#218838; color: #218838;}
 </style>
