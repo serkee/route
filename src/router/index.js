@@ -22,6 +22,7 @@ import UserManagement from '../views/admin/UserManagement.vue'; // 회원 관리
 import MapManagement from '../views/admin/MapManagement.vue'; // 지도 관리 페이지
 import BoardManagement from '../views/admin/BoardManagement.vue'; // 게시판 관리 페이지
 import RouteDetailView from '../views/RouteDetailView.vue';
+import PitchDetailView from '../views/PitchDetailView.vue';
 
 // Pinia 스토어 사용을 위해 import
 import { useUserStore } from '@/store/user'; // useUserStore 임포트
@@ -104,6 +105,12 @@ const routes = [
     name: 'routeDetail', // 라우트 이름 (MapView.vue에서 사용)
     component: RouteDetailView, // 이 컴포넌트에서 상세 내용을 표시할 것입니다. (새로 만들 예정)
     props: true // 라우트 파라미터 (id)를 컴포넌트 props로 전달
+  },
+  {
+    path: '/route/:routeId/pitch/:pitchId', // 라우트 ID와 피치 ID를 파라미터로 받습니다.
+    name: 'pitchDetail', // 라우트 이름 (RouteDetailView.vue에서 사용)
+    component: PitchDetailView, // 이 컴포넌트에서 피치 상세 내용을 표시할 것입니다. (새로 만들 파일)
+    props: true // 라우트 파라미터 (routeId, pitchId)를 컴포넌트 props로 전달
   },
   {
     path: '/admin', // 관리자 페이지 기본 경로

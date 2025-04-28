@@ -12,7 +12,8 @@
         class="route-diagram-img"
       />
       <div class="image-actions">
-        <button class="view-pitch-button">
+        <button class="view-pitch-button" @click="goToPitchDetail(pitches[0]?.id)"
+            :disabled="pitches.length === 0">
           <i class="fas fa-link"></i>
           피치보기
         </button>
@@ -59,104 +60,150 @@
       </ul>
     </div>
 
-    <div class="pitch-list-section">
-        <ul>
-            <li><button>1.나비처럼</button></li>
-            <li><button>2.노적갈매기</button></li>
-            <li><button>3.마징가방망이</button></li>
-            <li><button>4.웨딩마치</button></li>
-        </ul>
+    <div class="pitch-list-section" v-if="pitches.length > 0">
+        <!-- <h3>피치 선택</h3> -->
+        <div class="pitch-buttons">
+            <button
+                v-for="pitch in pitches"
+                :key="pitch.id"
+                @click="goToPitchDetail(pitch.id)"
+                class="pitch-button"
+            >
+                {{ pitch.name || `${pitch.number}피치` }} </button>
+        </div>
+    </div>
+    <div v-else-if="!loading">
+        <p>해당 라우트의 피치 정보가 없습니다.</p>
     </div>
   </div>
 </template>
   
-  <script setup>
-import { ref, onMounted } from "vue";
-// ✅✅✅ useRoute 임포트 및 route 변수 선언 라인 제거 ✅✅✅
-// import { useRoute } from 'vue-router'; // 이 라인 삭제
-// Firestore 임포트
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/firebase";
+<script setup>
+import { ref, onMounted } from 'vue';
+// Firestore related imports
+// ✅✅✅ 아래 ESLint 주석을 추가하여 Firestore 관련 임포트 오류 무시 ✅✅✅
+// eslint-disable-next-line no-unused-vars, no-undef
+import { doc, getDoc, collection as firestoreCollection, query as firestoreQuery, getDocs as firestoreGetDocs, orderBy } from 'firebase/firestore';
+import { db } from '@/firebase';
+import { useRouter } from 'vue-router';
 
-// defineProps는 <script setup>에서 자동으로 인식됩니다.
+
 // eslint-disable-next-line no-undef
 const props = defineProps({
   id: {
     type: String,
-    required: true,
-  },
+    required: true
+  }
 });
 
-// ✅✅✅ const route = useRoute(); 이 라인 삭제 ✅✅✅
+const router = useRouter();
 
-// 라우트 상세 정보를 저장할 반응형 변수
 const routeDetails = ref({
-  name: null,
-  overview: null,
-  climbingStyle: null,
-  gear: null,
-  difficulty: null,
-  firstAscentParty: null,
-  // 필요한 다른 필드 추가
+  name: null, overview: null, climbingStyle: null, gear: null, difficulty: null, firstAscentParty: null,
 });
 
-// 라우트 상세 정보를 Firestore에서 가져오는 함수
+const pitches = ref([]);
+const loading = ref(true);
+const error = ref(null);
+
+
 const fetchRouteDetails = async (routeId) => {
-  console.log(
-    `[RouteDetailView] 라우트 상세 정보 가져오기 시작 (ID: ${routeId})`
-  );
-  const routeDocRef = doc(db, "routes", routeId); // 실제 컬렉션 이름으로 수정
+  console.log(`[RouteDetailView] 라우트 상세 정보 가져오기 시작 (ID: ${routeId})`);
+   loading.value = true;
+   error.value = null;
+
+  const routeDocRef = doc(db, 'routes', routeId); // 실제 컬렉션 이름으로 수정
   try {
     const routeDoc = await getDoc(routeDocRef);
     if (routeDoc.exists()) {
       routeDetails.value = routeDoc.data();
-      console.log(
-        `[RouteDetailView] 라우트 상세 정보 가져옴:`,
-        routeDetails.value
-      );
+      console.log(`[RouteDetailView] 라우트 상세 정보 가져옴:`, routeDetails.value);
     } else {
-      console.warn(
-        `[RouteDetailView] 라우트 문서 ${routeId}를 찾을 수 없습니다.`
-      );
-      // 정보 없을 때 기본값 상세하게 설정
-      routeDetails.value = {
-        name: "정보 없음",
-        overview: "정보 없음",
-        climbingStyle: "정보 없음",
-        gear: "정보 없음",
-        difficulty: "정보 없음",
-        firstAscentParty: "정보 없음",
-      };
+      console.warn(`[RouteDetailView] 라우트 문서 ${routeId}를 찾을 수 없습니다.`);
+      routeDetails.value = { name: '정보 없음', overview: '정보 없음', climbingStyle: '정보 없음', gear: '정보 없음', difficulty: '정보 없음', firstAscentParty: '정보 없음' };
     }
   } catch (e) {
-    console.error(
-      `[RouteDetailView] 라우트 상세 정보 가져오기 오류 (ID: ${routeId}):`,
-      e
-    );
-    // 오류 발생 시 기본값 상세하게 설정
-    routeDetails.value = {
-      name: "오류 발생",
-      overview: "오류 발생",
-      climbingStyle: "오류 발생",
-      gear: "오류 발생",
-      difficulty: "오류 발생",
-      firstAscentParty: "오류 발생",
-    };
+    console.error(`[RouteDetailView] 라우트 상세 정보 가져오기 오류 (ID: ${routeId}):`, e);
+    error.value = e;
+     routeDetails.value = { name: '오류 발생', overview: '오류 발생', climbingStyle: '오류 발생', gear: '오류 발생', difficulty: '오류 발생', firstAscentParty: '오류 발생' };
+  } finally {
+       // 로딩 완료는 피치 정보까지 모두 가져온 후에 처리하는 것이 좋습니다.
   }
 };
+const goBack = () => {
+    console.log("[PitchDetailView] 뒤로가기 버튼 클릭.");
+    router.go(-1);
+};
 
-// 컴포넌트 마운트 시 라우트 파라미터 ID를 사용하여 상세 정보 가져오기
+const samplePitches = [
+  { id: 'pitch-1', number: 1, name: '1피치', length: '20m', difficulty: '5.8', climbingStyle: '슬랩', bolts: 3 },
+  { id: 'pitch-2', number: 2, name: '2피치', length: '25m', difficulty: '5.9', climbingStyle: '크랙', bolts: 4 },
+  { id: 'pitch-3', number: 3, name: '3피치', length: '30m', difficulty: '5.10a', climbingStyle: '페이스', bolts: 5 },
+  { id: 'pitch-4', number: 4, name: '4피치', length: '27m', difficulty: '5.10b', climbingStyle: '오버행', bolts: 4 },
+];
+
+const loadSamplePitches = () => {
+    console.log("[RouteDetailView] 샘플 피치 목록 로딩.");
+    pitches.value = samplePitches;
+    loading.value = false;
+};
+
+
+// ✅✅✅ 아래 ESLint 주석을 추가하여 함수 정의 오류 및 파라미터 오류 무시 ✅✅✅
+// eslint-disable-next-line no-unused-vars
+const fetchPitchesForRoute = async (routeId) => {
+    console.log(`[RouteDetailView] 라우트 "${routeId}"의 피치 목록 가져오기 시작.`);
+    pitches.value = [];
+    const pitchesCollectionRef = firestoreCollection(db, 'routes', routeId, 'pitches'); // 실제 경로로 수정
+    try {
+        const q = firestoreQuery(pitchesCollectionRef, orderBy('number', 'asc')); // 'number' 필드명 확인 필요
+        const querySnapshot = await firestoreGetDocs(q);
+
+        const pitchesList = [];
+        querySnapshot.forEach(doc => {
+            pitchesList.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        pitches.value = pitchesList;
+        console.log(`[RouteDetailView] 라우트 "${routeId}"의 피치 ${pitchesList.length}개 가져옴:`, pitchesList);
+    } catch (e) {
+        console.error(`[RouteDetailView] 라우트 "${routeId}"의 피치 목록 가져오기 오류:`, e);
+         error.value = e;
+    } finally {
+        loading.value = false;
+    }
+};
+
+
+const goToPitchDetail = (pitchId) => {
+    if (!pitchId) {
+        console.warn("[RouteDetailView] 선택할 피치 ID가 없습니다.");
+        return;
+    }
+    console.log(`[RouteDetailView] 피치 선택: ${pitchId}. 상세 페이지로 이동.`);
+    router.push({
+        name: 'pitchDetail',
+        params: {
+            routeId: props.id,
+            pitchId: pitchId
+        }
+    });
+};
+
+
 onMounted(() => {
-  // props.id를 사용하여 라우트 파라미터 ID 가져옴
   const currentRouteId = props.id;
   if (currentRouteId) {
-    fetchRouteDetails(currentRouteId); // 상세 정보 가져오는 함수 호출
+    fetchRouteDetails(currentRouteId);
+    // fetchPitchesForRoute(currentRouteId); // ✅ 실제 Firestore 조회 대신 이 라인을 주석 처리
+    loadSamplePitches(); // ✅ 대신 샘플 피치 로딩 함수 호출
   } else {
     console.error("[RouteDetailView] 라우트 ID가 제공되지 않았습니다.");
+     loading.value = false;
   }
 });
-
-// 필요한 경우 다른 스크립트 로직 추가
 </script>
   
   <style scoped>
@@ -274,9 +321,7 @@ onMounted(() => {
   background-position: center;
 }
 .pitch-list-section{margin-top: 30px; width: 100%;}
-.pitch-list-section > ul{}
-.pitch-list-section > ul > li{}
-.pitch-list-section > ul > li + li{margin-top: 10px;}
-.pitch-list-section > ul > li > button{padding: 10px 20px; border: 1px solid #999; border-radius: 25px; width: 100%; background: #fff; text-align: left; font-size: 16px;}
-.pitch-list-section > ul > li > button:hover{border-color:#218838; color: #218838;}
+.pitch-buttons button{padding: 10px 20px; border: 1px solid #999; border-radius: 25px; width: 100%; background: #fff; text-align: left; font-size: 16px;}
+.pitch-buttons button:hover{border-color:#218838; color: #218838;}
+.pitch-buttons button + button{margin-top: 10px;}
 </style>
