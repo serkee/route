@@ -22,7 +22,7 @@
     </div>
   
         <div class="pitch-diagram-section">
-             <img
+          <img
               v-if="currentPitchDetails && currentPitchDetails.imagePath"
        :src="currentPitchDetails.imagePath"
        :alt="`Pitch ${currentPitchDetails.number} Diagram`"
@@ -68,165 +68,146 @@
   </template>
   
   <script setup>
-  import { ref, onMounted, computed } from 'vue';
-  import { useRouter } from 'vue-router';
-  // Firestore 관련 함수들은 샘플 데이터 로딩 시 사용되지 않지만 나중에 필요하므로 남겨둡니다.
-  // ESLint 오류를 피하기 위해 주석을 유지합니다.
-  // eslint-disable-next-line no-unused-vars, no-undef
-  import { collection as firestoreCollection, query as firestoreQuery, getDocs as firestoreGetDocs, orderBy } from 'firebase/firestore';
-  // eslint-disable-next-line no-unused-vars
-  import { db } from '@/firebase';
-  
-  
-  // eslint-disable-next-line no-undef
-  const props = defineProps({
-   routeId: {
+  /* eslint-disable no-undef */
+import { ref, onMounted, computed } from 'vue';
+// Firestore 관련 함수들
+import { collection, query, getDocs, orderBy } from 'firebase/firestore'; // ✅ 실제 Firestore 함수 임포트
+import { db } from '@/firebase'; // Firebase db 인스턴스
+
+// 라우터 관련 훅
+import { useRouter } from 'vue-router';
+import { useRoute } from 'vue-router'; // ✅ useRoute 임포트 (URL 파라미터 접근에 사용)
+
+
+const router = useRouter(); // 라우터 인스턴스 가져옴
+const route = useRoute(); // ✅ 현재 라우트 정보 가져옴
+
+
+// props 정의 (라우트 설정에서 컴포넌트로 전달)
+const props = defineProps({
+  routeId: {
     type: String,
     required: true
-   },
-   pitchId: {
+  },
+  pitchId: {
     type: String,
     required: true
-   }
-  });
-  
-  const router = useRouter();
-  
-  const allPitches = ref([]); // 해당 라우트의 모든 피치 목록
-  const selectedPitchId = ref(null); // 현재 화면에 상세 정보를 표시할 피치의 ID
-  
-  const loading = ref(true); // 로딩 상태
-  const error = ref(null); // 오류 상태
-  
-  // allPitches 목록과 selectedPitchId에 따라 현재 표시할 피치 상세 정보를 계산하는 computed 속성
-  const currentPitchDetails = computed(() => {
+  }
+});
+
+
+const allPitches = ref([]); // 해당 라우트의 모든 피치 목록
+const selectedPitchId = ref(null); // 현재 화면에 상세 정보를 표시할 피치의 ID
+
+const loading = ref(true); // 로딩 상태
+const error = ref(null); // 오류 상태
+
+// allPitches 목록과 selectedPitchId에 따라 현재 표시할 피치 상세 정보를 계산하는 computed 속성
+const currentPitchDetails = computed(() => {
     const foundPitch = allPitches.value.find(pitch => pitch.id === selectedPitchId.value);
     console.log(`[PitchDetailView] computed - 현재 선택된 피치 ID: ${selectedPitchId.value}, 찾은 피치:`, foundPitch);
     return foundPitch;
-  });
-  
-  
-  // ✅✅✅ 샘플 피치 데이터 정의 - imagePath 필드 추가 ✅✅✅
-  const samplePitches = [
-    { id: 'pitch-1', number: 1, name: '1피치', length: '20m', difficulty: '5.8', climbingStyle: '슬랩', bolts: 3, imagePath: '/images/contents/@map-1.png' }, // imagePath 추가
-    { id: 'pitch-2', number: 2, name: '2피치', length: '25m', difficulty: '5.9', climbingStyle: '크랙', bolts: 4, imagePath: '/images/contents/@map-2.png' }, // imagePath 추가
-    { id: 'pitch-3', number: 3, name: '3피치', length: '30m', difficulty: '5.10a', climbingStyle: '페이스', bolts: 5, imagePath: '/images/contents/@map-3.png' }, // imagePath 추가
-    { id: 'pitch-4', number: 4, name: '4피치', length: '27m', difficulty: '5.10b', climbingStyle: '오버행', bolts: 4, imagePath: '/images/contents/@map-4.png' }, // imagePath 추가
-  ];
-  
-  // ✅✅✅ 샘플 피치 데이터를 로드하는 함수 ✅✅✅
-  const loadSamplePitchData = () => {
-    console.log("[PitchDetailView] 샘플 피치 데이터 로딩.");
-    loading.value = true;
-    error.value = null;
-  
-    setTimeout(() => {
-      allPitches.value = samplePitches; // 모든 샘플 피치 목록 할당
-  
-      const initialPitchId = props.pitchId;
-      if (allPitches.value.find(p => p.id === initialPitchId)) {
-        selectedPitchId.value = initialPitchId;
-        console.log(`[PitchDetailView] 초기 선택된 피치 ID (샘플): ${selectedPitchId.value}`);
-      } else if (allPitches.value.length > 0) {
-        selectedPitchId.value = allPitches.value[0].id;
-        console.warn(`[PitchDetailView] 초기 피치 ID "${initialPitchId}"를 찾을 수 없어 첫 번째 샘플 피치 "${selectedPitchId.value}"를 선택합니다.`);
-        router.replace({ params: { routeId: props.routeId, pitchId: selectedPitchId.value } });
-      } else {
-               selectedPitchId.value = null;
-               console.warn("[PitchDetailView] 샘플 피치 데이터가 비어 있습니다.");
-          }
-  
-      loading.value = false;
-      console.log("[PitchDetailView] 샘플 피치 데이터 로딩 완료.");
-    }, 300);
-  };
-  
-  
-  // fetchAllPitchesForRoute 함수는 나중에 실제 Firestore 사용 시 필요하므로 남겨둡니다.
-  // eslint-disable-next-line no-unused-vars
-  const fetchAllPitchesForRoute = async (routeId) => {
-    console.log(`[PitchDetailView] 라우트 "${routeId}"의 모든 피치 목록 Firestore에서 가져오기 시작.`);
-    loading.value = true;
-    error.value = null;
-    allPitches.value = [];
-  
-    // 실제 Firestore 경로 및 필드 (여러분의 데이터 구조에 맞게 수정!) - imagePath 필드도 가져와야 합니다.
-    const pitchesCollectionRef = firestoreCollection(db, 'routes', routeId, 'pitches');
-    try {
-      const q = firestoreQuery(pitchesCollectionRef, orderBy('number', 'asc'));
-      const querySnapshot = await firestoreGetDocs(q);
-  
-      const pitchesList = [];
-      querySnapshot.forEach(doc => {
-        pitchesList.push({
-          id: doc.id,
-          ...doc.data() // Firestore 문서에 imagePath 필드가 있어야 합니다.
-        });
+});
+
+// ✅✅✅ Firestore에서 특정 라우트의 모든 피치 목록을 가져오는 함수 ✅✅✅
+const fetchAllPitchesForRoute = async (routeId) => {
+  console.log(`[PitchDetailView] 라우트 "${routeId}"의 모든 피치 목록 Firestore에서 가져오기 시작.`);
+  loading.value = true;
+  error.value = null;
+  allPitches.value = []; // 이전 데이터 초기화
+
+  // Firestore 경로: routes/{routeId}/pitches
+  const pitchesCollectionRef = collection(db, 'routes', routeId, 'pitches');
+  try {
+    // 피치 번호(number) 순으로 정렬하여 조회
+    const q = query(pitchesCollectionRef, orderBy('number', 'asc'));
+    const querySnapshot = await getDocs(q);
+
+    const pitchesList = [];
+    querySnapshot.forEach(doc => {
+      pitchesList.push({
+        id: doc.id, // 문서 ID를 피치 ID로 사용
+        ...doc.data() // Firestore 문서의 나머지 필드 (name, length, difficulty, imagePath 등)
       });
-      allPitches.value = pitchesList;
-      console.log(`[PitchDetailView] 라우트 "${routeId}"의 모든 피치 ${pitchesList.length}개 가져옴:`, allPitches.value);
-  
-      if (allPitches.value.find(p => p.id === props.pitchId)) {
-        selectedPitchId.value = props.pitchId;
-        console.log(`[PitchDetailView] 초기 선택된 피치 ID: ${selectedPitchId.value}`);
-      } else if (allPitches.value.length > 0) {
-        selectedPitchId.value = allPitches.value[0].id;
-        console.warn(`[PitchDetailView] 초기 피치 ID "${props.pitchId}"를 찾을 수 없어 첫 번째 피치 "${selectedPitchId.value}"를 선택합니다.`);
-        router.replace({ params: { routeId: props.routeId, pitchId: selectedPitchId.value } });
-      } else {
-               selectedPitchId.value = null;
-               console.warn("[PitchDetailView] Firestore에서 가져온 피치 목록이 비어 있습니다.");
-          }
-  
-  
-    } catch (e) {
-      console.error(`[PitchDetailView] 라우트 "${routeId}"의 모든 피치 목록 Firestore에서 가져오기 오류:`, e);
-      error.value = e;
-    } finally {
-      loading.value = false;
-      console.log("[PitchDetailView] Firestore 피치 로딩 완료.");
-    }
-  };
-  
-  
-  // 피치 선택 버튼 클릭 시 호출될 함수
-  const selectPitch = (pitchId) => {
-    if (selectedPitchId.value === pitchId) {
-      console.log(`[PitchDetailView] 피치 "${pitchId}" 이미 선택됨.`);
-      return;
-    }
-    if (allPitches.value.find(p => p.id === pitchId)) {
-      console.log(`[PitchDetailView] 피치 "${pitchId}" 선택.`);
-      selectedPitchId.value = pitchId;
-      // URL의 pitchId를 선택된 피치 ID로 업데이트 (페이지 이동 없음)
-      router.replace({ params: { routeId: props.routeId, pitchId: pitchId } });
+    });
+    allPitches.value = pitchesList;
+    console.log(`[PitchDetailView] 라우트 "${routeId}"의 모든 피치 ${pitchesList.length}개 가져옴:`, allPitches.value);
+
+    // ✅✅✅ 초기 선택할 피치 설정 로직 ✅✅✅
+    // 1. URL 파라미터로 받은 pitchId에 해당하는 피치가 있는지 찾습니다.
+    // 2. 있다면 그 피치를 선택합니다.
+    // 3. 없다면 (또는 피치가 하나도 없다면) 첫 번째 피치를 선택하고 URL을 업데이트합니다.
+    const initialPitchIdFromUrl = props.pitchId;
+    if (allPitches.value.find(p => p.id === initialPitchIdFromUrl)) {
+      selectedPitchId.value = initialPitchIdFromUrl;
+      console.log(`[PitchDetailView] URL 초기 피치 ID "${initialPitchIdFromUrl}"에 해당하는 피치를 선택합니다.`);
+    } else if (allPitches.value.length > 0) {
+      // URL의 pitchId가 유효하지 않거나 없는 경우 첫 번째 피치를 선택
+      selectedPitchId.value = allPitches.value[0].id;
+      console.warn(`[PitchDetailView] URL 초기 피치 ID "${initialPitchIdFromUrl}"를 찾을 수 없어 첫 번째 피치 "${selectedPitchId.value}"를 선택합니다. URL을 업데이트합니다.`);
+      // URL의 pitchId를 첫 번째 피치의 ID로 교체 (페이지 새로고침 없이)
+      router.replace({ params: { routeId: props.routeId, pitchId: selectedPitchId.value } });
     } else {
-      console.warn(`[PitchDetailView] 피치 목록에 없는 피치 ID "${pitchId}" 선택 시도.`);
+      // 해당 라우트에 피치가 없는 경우
+      selectedPitchId.value = null;
+      console.warn(`[PitchDetailView] 라우트 "${routeId}"에는 등록된 피치가 없습니다.`);
+      // 사용자에게 피치가 없음을 알리는 메시지가 v-else-if="!loading && allPitches.length === 0" 로 표시됩니다.
     }
-  
-  };
-  
-  
-  // 뒤로가기 함수
-  const goBack = () => {
-    console.log("[PitchDetailView] 뒤로가기 버튼 클릭.");
-    router.go(-1);
-  };
-  
-  
-  // 컴포넌트 마운트 시 샘플 데이터를 로드합니다.
-  onMounted(() => {
-   const { routeId, pitchId } = props;
-   console.log(`[PitchDetailView] 마운트됨. 라우트 ID: ${routeId}, 초기 피치 ID: ${pitchId}. 샘플 데이터 로딩 시작.`);
-   if (routeId && pitchId) {
-    // fetchAllPitchesForRoute(routeId); // ✅ 실제 Firestore 조회는 주석 처리
-    loadSamplePitchData(); // ✅ 샘플 데이터 로딩 함수 호출
-   } else {
-    console.error("[PitchDetailView] 라우트 ID 또는 초기 피치 ID가 제공되지 않았습니다.");
+
+
+  } catch (e) {
+    console.error(`[PitchDetailView] 라우트 "${routeId}"의 모든 피치 목록 Firestore에서 가져오기 오류:`, e);
+    error.value = e;
+  } finally {
     loading.value = false;
-   }
-  });
-  </script>
+    console.log("[PitchDetailView] Firestore 피치 로딩 완료.");
+  }
+};
+
+// ✅ loadSamplePitchData 함수와 samplePitches 데이터 제거 ✅
+// 샘플 데이터를 사용하지 않고 실제 Firestore 데이터를 로드합니다.
+// const samplePitches = [...]; // 제거
+// const loadSamplePitchData = () => { ... }; // 제거
+
+
+// 피치 선택 버튼 클릭 시 호출될 함수
+const selectPitch = (pitchId) => {
+  if (selectedPitchId.value === pitchId) {
+    console.log(`[PitchDetailView] 피치 "${pitchId}" 이미 선택됨.`);
+    return;
+  }
+  // 선택된 피치 ID가 현재 allPitches 목록에 있는지 확인
+  if (allPitches.value.find(p => p.id === pitchId)) {
+    console.log(`[PitchDetailView] 피치 "${pitchId}" 선택.`);
+    selectedPitchId.value = pitchId;
+    // URL의 pitchId를 선택된 피치 ID로 업데이트 (페이지 이동 없음)
+    router.replace({ params: { routeId: props.routeId, pitchId: pitchId } });
+  } else {
+    console.warn(`[PitchDetailView] 피치 목록에 없는 피치 ID "${pitchId}" 선택 시도.`);
+  }
+};
+
+
+// 뒤로가기 함수
+const goBack = () => {
+  console.log("[PitchDetailView] 뒤로가기 버튼 클릭.");
+  router.go(-1); // 이전 페이지로 이동
+};
+
+
+// 컴포넌트 마운트 시 실제 Firestore 데이터를 로드합니다.
+onMounted(() => {
+  const { routeId, pitchId } = props; // props에서 routeId와 pitchId 가져옴
+  console.log(`[PitchDetailView] 마운트됨. 라우트 ID: ${routeId}, 초기 피치 ID: ${pitchId}. Firestore 데이터 로딩 시작.`);
+  if (routeId) { // routeId가 유효하면 데이터 로드 시작
+    fetchAllPitchesForRoute(routeId); // ✅ 실제 Firestore 조회 함수 호출
+  } else {
+    console.error("[PitchDetailView] 라우트 ID가 제공되지 않았습니다. 피치 데이터를 불러올 수 없습니다.");
+    loading.value = false; // 로딩 상태 해제
+    error.value = new Error("라우트 정보를 찾을 수 없습니다."); // 오류 상태 설정
+  }
+});
+</script>
 
 
 <style scoped>
