@@ -2,9 +2,10 @@
   <div class="container">
     <div class="header">
       <button class="back-button" @click="goBack">←</button>
-      <h1></h1>
+      <h1>{{ routeDetails.name }}</h1>
       <div class="header__right"></div>
     </div>
+
     <div class="route-image-section">
       <img
         v-if="routeDetails && routeDetails.mainImageUrl"
@@ -33,46 +34,47 @@
     </div>
 
     <div class="route-info-section">
-      <p>라우트 ID: {{ id }}</p>
-
+      <!-- <p>라우트 ID: {{ id }}</p> -->
+<!-- 
       <h1 class="route-name">
         {{ routeDetails.name || "루트 이름 불러오는 중..." }}
-      </h1>
+      </h1> -->
 
       <ul class="route-details-list">
-        <li>
+        <!-- <li>
           <i class="fas fa-location-dot"></i>
           <span>이름 - {{ routeDetails.name || "정보 없음" }}</span>
-        </li>
+        </li> -->
         <li>
           <i class="fas fa-file-lines"></i>
-          <span>등반개요 - {{ routeDetails.overview || "정보 없음" }}</span>
+          <span>등반개요</span>
+          <strong>{{ routeDetails.overview || "정보 없음" }}</strong>
         </li>
         <li>
           <i class="fas fa-sliders-h"></i>
-          <span
-            >등반형태 - {{ routeDetails.climbingStyle || "정보 없음" }}</span
-          >
+          <span>등반형태</span>
+            <strong>{{ routeDetails.climbingStyle || "정보 없음" }}</strong>
         </li>
         <li>
           <i class="fas fa-gears"></i>
-          <span>등반장비 - {{ routeDetails.gear || "정보 없음" }}</span>
+          <span>등반장비</span>
+          <strong>{{ routeDetails.gear || "정보 없음" }}</strong>
         </li>
         <li>
           <i class="fas fa-chart-simple"></i>
-          <span>평균난이도 - {{ routeDetails.difficulty || "정보 없음" }}</span>
+          <span>평균난이도</span>
+          <strong>{{ routeDetails.difficulty || "정보 없음" }}</strong>
         </li>
         <li>
           <i class="fas fa-book"></i>
-          <span
-            >개척자 - {{ routeDetails.firstAscentParty || "정보 없음" }}</span
-          >
+          <span>개척자</span>
+          <strong>{{ routeDetails.firstAscentParty || "정보 없음" }}</strong>
         </li>
       </ul>
     </div>
 
     <div class="pitch-list-section" v-if="pitches.length > 0">
-      <h3>피치 선택</h3>
+      <!-- <h3>피치 선택</h3> -->
       <div class="pitch-buttons">
         <button
           v-for="pitch in pitches"
@@ -281,15 +283,14 @@ onMounted(() => {
 
 .route-image-section {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
   width: 100%;
 }
 
 .route-diagram-img {
   width: 100%;
   height: auto;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  
 }
 
 .image-actions {
@@ -341,32 +342,43 @@ onMounted(() => {
 .route-details-list {
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: 0 0 30px;
+  border: 2px solid #218838;
+  border-width: 2px 0;
+
 }
 
 .route-details-list li {
   display: flex;
-  align-items: center;
   font-size: 1em;
   color: #555;
   line-height: 1.5;
-  border-bottom: 1px solid #eee;
+  border-top: 1px solid #eee;
   padding: 10px 0;
+}
+.route-details-list li:first-child{
+  border-top: 0;
 }
 
 .route-details-list li .fas {
-  margin: 5px 10px 0 0;
+  margin: 1px 10px 0 0;
   flex-shrink: 0;
   width: 20px;
   height: 20px;
   display: flex;
-  align-items: top;
+  align-items: center;
   justify-content: center;
+
 }
 
 .route-details-list li span {
-  width: 90px;
+  width: 72px;
   color: #999;
+  font-size: 14px;
+  margin-top: 2px;
+}
+.route-details-list li strong{
+  flex: 1;
 }
 .route-details-list li p {
   flex-grow: 1;
@@ -382,8 +394,12 @@ onMounted(() => {
   background-position: center;
 }
 .pitch-list-section {
-  margin-top: 30px;
   width: 100%;
+}
+.pitch-buttons{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
 }
 .pitch-buttons button {
   padding: 10px 20px;

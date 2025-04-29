@@ -56,7 +56,7 @@
     </div>
     <div class="tools-row">
       <div class="info-item full-width">
-        <span>볼트 <strong>{{ currentPitchDetails?.bolts || 0 }}</strong>개, 로프 1개</span>
+        <span>볼트 12개, 로프 1개</span>
       </div>
     </div>
     
@@ -224,22 +224,20 @@ onMounted(() => {
 }
 
 .pitch-diagram-section {
+border: 2px solid #218838;
+border-width:2px 0;
+padding-top: 20px;
   text-align: center;
 }
 
 .route-diagram-img {
-  /* Main diagram image */
   width: 100%;
   height: auto;
-  border: 1px solid #ddd;
-  border-radius: 4px;
 }
 
 .pitch-info-section {
-  margin-top: 20px;
   text-align: left;
-  border: 1px solid #e1e1e1;
-  border-width: 1px 0;
+  border-bottom: 1px solid #e1e1e1;
   padding: 15px 10px;
 }
 
