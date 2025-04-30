@@ -4,7 +4,15 @@
 
     <nav v-if="userStore.isAuthenticated && !isAdminRoute">
       <router-link to="/home">홈</router-link> |
-      <router-link to="/map">지도</router-link> |
+      <router-link to="/map" custom v-slot="{ href, navigate }">
+        <a
+          :href="href"
+          @click="navigate"
+          :class="{ 'router-link-active': isMapActive }"
+          aria-current="page" >
+          지도
+        </a>
+      </router-link> |
       <router-link to="/user">사용자</router-link> |
 
       <router-link to="/board" custom v-slot="{ href, navigate, isExactActive }">
@@ -35,29 +43,21 @@ const userStore = useUserStore();
 const route = useRoute();
 
 const isAdminRoute = computed(() => {
-  // 현재 라우트의 path가 '/admin'으로 시작하는지 확인합니다.
   return route.path.startsWith('/admin');
-
-  // 또는 라우트 메타 필드를 사용한다면:
-  // return route.matched.some(record => record.meta.requiresAdmin);
-  // 이 경우 AdminView 뿐만 아니라 그 하위 라우트 모두 requiresAdmin: true를 상속받아야 합니다.
-  // path.startsWith('/admin') 방법이 일반적으로 더 단순합니다.
 });
 
-// '게시판' 항목이 활성화되어야 하는지 계산하는 Computed 속성
-// 라우트 경로가 '/board'로 시작하는지 확인
 const isBoardActive = computed(() => {
   return route.path.startsWith('/board');
 });
-
-
-// 컴포넌트 마운트 시 (앱 로드 시) 인증 상태 확인 리스너 설정
-onMounted(() => {
-  console.log("[App.vue] onMounted: subscribeToAuthStateChanges 호출");
-  // userService에 정의된 인증 상태 변경 리스너 설정 함수 호출
+const isMapActive = computed(() => {
+  return route.path.startsWith('/map') || route.path.startsWith('/route');
 });
 
-// TODO: 앱 전반적으로 필요한 로직 추가 (예: 인증 상태에 따른 라우트 가드 등)
+
+onMounted(() => {
+  console.log("[App.vue] onMounted: subscribeToAuthStateChanges 호출");
+});
+
 
 </script>
 

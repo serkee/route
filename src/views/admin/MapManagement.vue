@@ -1,1203 +1,799 @@
 <template>
-  <div class="admin-map-management">
-
-    <div v-if="isUploadingAnyImage" class="loading-overlay">
-        <div class="loading-content">
-            <p>이미지 업로드 중...</p>
-            <div class="spinner"></div>
-             </div>
-    </div>
-    <div v-if="currentView === 'routeList'">
-      <h2>지도 관리 (루트 목록)</h2>
-      <button @click="addNewRoute" class="add-button">새 루트 추가</button>
-      <div v-if="loading" class="loading-message">루트 목록 로딩 중...</div>
-      <div v-if="error" class="error-message">루트 목록 로딩 오류: {{ error.message }}</div>
-      <div v-if="routes.length > 0" class="route-list">
-        <h3>기존 루트 목록 ({{ routes.length }}개)</h3>
-        <ul>
-          <li v-for="route in routes" :key="route.id" class="route-item">
-            <div class="route-info">
-              <p><strong>ID:</strong> {{ route.id }}</p>
-              <p><strong>이름:</strong> {{ route.name || '이름 없음' }}</p>
-               <p v-if="route.location">
-                 <strong>위치:</strong> Lat: {{ route.location.lat }}, Lng: {{ route.location.lng }}
-              </p>
-               <p v-if="route.overview"><strong>개요:</strong> {{ route.overview }}</p>
-               <p v-if="route.difficulty"><strong>난이도:</strong> {{ route.difficulty }}</p>
-                <div v-if="route.mainImageUrl" style="margin-top: 10px;">
-                     <img :src="route.mainImageUrl" alt="루트 이미지" style="max-width: 100px;">
-                </div>
-            </div>
-            <div class="route-actions">
-              <button @click="editRoute(route)" class="action-button">수정</button>
-              <button @click="managePitches(route.id)" class="action-button">피치 관리</button>
-              <button @click="deleteRoute(route.id)" class="action-button delete">삭제</button>
-            </div>
-          </li>
-        </ul>
-      </div>
-       <div v-else-if="!loading">
-           <p>등록된 루트가 없습니다.</p>
+    <div class="container">
+  
+      <!-- 새 루트 추가 버튼 -->
+      <button class="add-route-button" @click="openAddFormModal">새 루트 추가</button>
+  
+      <!-- 루트 목록 테이블 컴포넌트 사용 -->
+      <RouteListView
+        :routes="routes"
+        :loading="loading"
+        :error="fetchError"
+        :formatDate="formatDate"
+        @edit="handleEditRoute"
+        @delete="confirmDeleteRoute"
+      />
+  
+      <!-- 삭제 확인 모달 -->
+       <div v-if="showConfirmModal" class="modal-overlay">
+          <div class="modal-content">
+              <p>이 루트를 정말 삭제하시겠습니까?</p>
+              <button @click="deleteRoute">확인</button>
+              <button @click="cancelDelete">취소</button>
+          </div>
        </div>
-    </div>
-
-    <div v-else-if="currentView === 'routeForm'">
-      <h2>{{ editingRoute && editingRoute.id ? '루트 수정' : '새 루트 추가' }}</h2>
-
-      <form @submit.prevent="saveRoute">
-        <div class="form-group">
-          <label for="routeName">이름:</label>
-          <input type="text" id="routeName" v-model="editingRoute.name" required>
-        </div>
-        <div class="form-group">
-          <label for="routeLat">위도:</label>
-          <input type="number" id="routeLat" v-model.number="editingRoute.location.lat" required step="any">
-        </div>
-         <div class="form-group">
-          <label for="routeLng">경도:</label>
-          <input type="number" id="routeLng" v-model.number="editingRoute.location.lng" required step="any">
-        </div>
-        <div class="form-group">
-          <label for="routeOverview">등반 개요:</label>
-          <textarea id="routeOverview" v-model="editingRoute.overview"></textarea>
-        </div>
-         <div class="form-group">
-          <label for="routeStyle">등반 형태:</label>
-          <input type="text" id="routeStyle" v-model="editingRoute.climbingStyle">
-        </div>
-         <div class="form-group">
-          <label for="routeGear">등반 장비:</label>
-          <input type="text" id="routeGear" v-model="editingRoute.gear">
-        </div>
-         <div class="form-group">
-          <label for="routeDifficulty">평균 난이도:</label>
-          <input type="text" id="routeDifficulty" v-model="editingRoute.difficulty">
-        </div>
-         <div class="form-group">
-          <label for="routeFirstAscent">개척자:</label>
-          <input type="text" id="routeFirstAscent" v-model="editingRoute.firstAscentParty">
-        </div>
-
-        <div class="form-group">
-            <label for="routeMainImage">메인 이미지:</label>
-            <input type="file" id="routeMainImage" @change="handleImageFileChange" accept="image/*">
-            <div v-if="editingRoute.mainImageUrl && !selectedImageFile">
-                 <p>현재 이미지:</p>
-                 <img :src="editingRoute.mainImageUrl" alt="현재 루트 이미지" style="max-width: 200px; margin-top: 10px;">
-            </div>
-             <div v-else-if="selectedImageFile">
-                 <p>선택된 파일: {{ selectedImageFile.name }}</p>
-             </div>
-             </div>
-
-         <div v-if="!editingRoute || !editingRoute.id" class="new-pitches-section">
-            <h3>피치 정보 추가</h3>
-            <p class="section-description">새 루트에 속한 피치 정보를 여기서 바로 입력할 수 있습니다.</p>
-             <button type="button" @click="addPitchToNewRoute" class="add-pitch-button">피치 추가</button>
-
-            <div v-if="newPitches.length > 0" class="pitch-forms-list">
-                 <div v-for="(pitch, index) in newPitches" :key="index" class="pitch-form-item">
-                     <h4>피치 {{ index + 1 }}</h4>
-                     <div class="form-group">
-                        <label :for="'newPitchNumber_' + index">번호:</label>
-                        <input type="number" :id="'newPitchNumber_' + index" v-model.number="pitch.number" required min="1">
-                     </div>
-                     <div class="form-group">
-                        <label :for="'newPitchName_' + index">이름:</label>
-                        <input type="text" :id="'newPitchName_' + index" v-model="pitch.name" required>
-                     </div>
-                     <div class="form-group">
-                        <label :for="'newPitchLength_' + index">길이 (예: 20m):</label>
-                        <input type="text" :id="'newPitchLength_' + index" v-model="pitch.length">
-                     </div>
-                      <div class="form-group">
-                        <label :for="'newPitchDifficulty_' + index">난이도 (예: 5.10a):</label>
-                        <input type="text" :id="'newPitchDifficulty_' + index" v-model="pitch.difficulty">
-                     </div>
-                      <div class="form-group">
-                        <label :for="'newPitchStyle_' + index">형태 (예: 슬랩):</label>
-                        <input type="text" :id="'newPitchStyle_' + index" v-model="pitch.climbingStyle">
-                     </div>
-                      <div class="form-group">
-                        <label :for="'newPitchBolts_' + index">볼트 개수:</label>
-                        <input type="number" :id="'newPitchBolts_' + index" v-model.number="pitch.bolts" min="0">
-                     </div>
-                     <div class="form-group">
-                         <label :for="'newPitchImageFile_' + index">피치 이미지:</label>
-                         <input type="file" :id="'newPitchImageFile_' + index" @change="handlePitchImageFileChange($event, index)" accept="image/*">
-
-                          <div v-if="pitch.selectedFile">
-                             <p>선택된 파일: {{ pitch.selectedFile.name }}</p>
-                          </div>
-                          </div>
-
-
-                     <button type="button" @click="removePitchFromNewRoute(index)" class="action-button delete small">피치 삭제</button>
-                 </div>
-            </div>
-         </div>
-
-
-        <div class="form-actions">
-          <button type="submit" class="action-button" :disabled="isUploadingAnyImage">저장</button>
-          <button type="button" @click="cancelEdit" class="action-button">취소</button>
-        </div>
-      </form>
-    </div>
-
-    <div v-else-if="currentView === 'pitchList'">
-      <h2>피치 관리 - {{ selectedRoute && selectedRoute.name || '로딩 중...' }}</h2>
-      <button @click="cancelEdit" class="action-button">← 루트 목록으로</button>
-
-      <button @click="addNewPitch" class="add-button">새 피치 추가</button>
-
-       <div v-if="loadingPitches" class="loading-message">피치 목록 로딩 중...</div>
-       <div v-if="pitchError" class="error-message">피치 목록 로딩 오류: {{ pitchError.message }}</div>
-
-       <div v-if="pitchesForRoute.length > 0" class="pitch-list">
-           <h3>{{ selectedRoute && selectedRoute.name || '' }}의 피치 목록 ({{ pitchesForRoute.length }}개)</h3>
-           <ul>
-               <li v-for="pitch in pitchesForRoute" :key="pitch.id" class="pitch-item">
-                   <div class="pitch-info">
-                       <p><strong>ID:</strong> {{ pitch.id }}</p>
-                       <p><strong>번호:</strong> {{ pitch.number || '미지정' }}</p>
-                       <p><strong>이름:</strong> {{ pitch.name || '이름 없음' }}</p>
-                        <p><strong>길이:</strong> {{ pitch.length || '정보 없음' }}</p>
-                        <p><strong>난이도:</strong> {{ pitch.difficulty || '정보 없음' }}</p>
-                        <p><strong>형태:</strong> {{ pitch.climbingStyle || '情報 없음' }}</p>
-                        <p v-if="pitch.bolts !== undefined"><strong>볼트:</strong> {{ pitch.bolts }}개</p>
-                        <p v-if="pitch.imagePath"><strong>이미지 경로:</strong> {{ pitch.imagePath }}</p>
-                        <div v-if="pitch.imagePath" style="margin-top: 10px;">
-                             <img :src="pitch.imagePath" alt="피치 이미지" style="max-width: 80px;">
-                        </div>
-                   </div>
-                   <div class="pitch-actions">
-                       <button @click="editPitch(pitch)" class="action-button">수정</button>
-                       <button @click="deletePitch(selectedRouteId, pitch.id)" class="action-button delete">삭제</button>
-                   </div>
-               </li>
-           </ul>
+  
+       <!-- 루트 추가/수정 폼 모달 -->
+       <div v-if="showFormModal" class="modal-overlay">
+          <div class="modal-content form-modal-content">
+               <!-- RouteFormView 컴포넌트 사용 -->
+               <!-- ref 추가하여 자식 컴포넌트 인스턴스에 접근 -->
+              <RouteFormView
+                ref="routeFormRef"
+                :initialRouteData="routeToEdit"
+                :isEditing="isEditing"
+                :pitches="currentRoutePitches"
+                @save="handleSaveRoute"
+                @cancel="handleCancelEdit"
+                @add-pitch="handleAddPitch"
+                @edit-pitch="handleEditPitch"
+                @delete-pitch="handleDeletePitch"
+              />
+          </div>
        </div>
-        <div v-else-if="!loadingPitches">
-            <p>해당 루트에 등록된 피치가 없습니다.</p>
-        </div>
+  
+        <!-- 전체 로딩 및 오류 메시지 (필요시) -->
+        <!-- <div v-if="loading" class="loading-message">처리 중...</div> -->
+        <div v-if="saveError" class="error-message">저장 오류: {{ saveError.message }}</div>
+        <div v-if="deleteError" class="error-message">삭제 오류: {{ deleteError.message }}</div>
+        <div v-if="pitchError" class="error-message">피치 오류: {{ pitchError.message }}</div>
+  
+  
     </div>
-
-    <div v-else-if="currentView === 'pitchForm'">
-     <h2>{{ editingPitch && editingPitch.id ? '피치 수정' : '새 피치 추가' }} (루트: {{ selectedRoute && selectedRoute.name || '로딩 중...' }})</h2>
-       <button @click="cancelPitchEdit" class="action-button">← 피치 목록으로</button>
-
-       <form @submit.prevent="savePitch">
-         <div class="form-group">
-            <label for="pitchNumber">번호:</label>
-            <input type="number" id="pitchNumber" v-model.number="editingPitch.number" required min="1">
-         </div>
-         <div class="form-group">
-            <label for="pitchName">이름:</label>
-            <input type="text" id="pitchName" v-model="editingPitch.name" required>
-         </div>
-         <div class="form-group">
-            <label for="pitchLength">길이 (예: 20m):</label>
-            <input type="text" id="pitchLength" v-model="editingPitch.length">
-         </div>
-          <div class="form-group">
-            <label for="pitchDifficulty">난이도 (예: 5.10a):</label>
-            <input type="text" id="pitchDifficulty" v-model="editingPitch.difficulty">
-         </div>
-          <div class="form-group">
-            <label for="pitchStyle">형태 (예: 슬랩):</label>
-            <input type="text" id="pitchStyle" v-model="editingPitch.climbingStyle">
-         </div>
-          <div class="form-group">
-            <label for="pitchBolts">볼트 개수:</label>
-            <input type="number" id="pitchBolts" v-model.number="editingPitch.bolts" min="0">
-         </div>
-         <div class="form-group">
-             <label for="pitchImageFile">피치 이미지:</label>
-              <div v-if="editingPitch.imagePath && !selectedExistingPitchImageFile">
-                 <p>현재 이미지:</p>
-                 <img :src="editingPitch.imagePath" alt="현재 피치 이미지" style="max-width: 150px; margin-top: 10px;">
-              </div>
-             <input type="file" id="pitchImageFile" @change="handleExistingPitchImageFileChange($event)" accept="image/*">
-              <div v-if="selectedExistingPitchImageFile">
-                 <p>선택된 파일: {{ selectedExistingPitchImageFile.name }}</p>
-              </div>
-
-              </div>
-
-
-         <div class="form-actions">
-           <button type="submit" class="action-button" :disabled="isUploadingAnyImage">저장</button>
-           <button type="button" @click="cancelPitchEdit" class="action-button">취소</button>
-         </div>
-       </form>
-    </div>
-
-
-  </div>
-</template>
-
-<script setup>
-import { ref, onMounted, watch, computed } from 'vue'; // computed 임포트
-// Firestore
-import { collection, getDocs, query, deleteDoc, doc, addDoc, updateDoc, orderBy, writeBatch } from 'firebase/firestore'; // writeBatch 임포트
-import { db } from '@/firebase';
-// Firebase Storage
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-
-
-const storage = getStorage();
-
-
-// ✅✅✅ 상태 변수 정의 ✅✅✅
-const currentView = ref('routeList');
-const routes = ref([]);
-const selectedRouteId = ref(null);
-const selectedRoute = ref(null);
-const editingRoute = ref(null); // 루트 추가/수정 폼에서 사용
-const pitchesForRoute = ref([]); // 피치 목록 뷰에서 사용
-const editingPitch = ref(null); // 피치 추가/수정 폼에서 사용
-
-// ✅✅✅ 새 루트 추가 시 함께 저장할 피치 목록 상태 추가 (이미지 업로드 관련 상태 포함) ✅✅✅
-const newPitches = ref([]); // 새 루트 폼에서만 사용
-
-const loading = ref(true); // 루트 목록 로딩 상태
-const error = ref(null); // 루트 목록 로딩 오류 상태
-const loadingPitches = ref(false); // 피치 목록 로딩 상태
-const pitchError = ref(null); // 피치 목록 로딩 오류 상태
-
-// 루트 이미지 업로드 관련 상태 변수 (메인 루트 이미지)
-const selectedImageFile = ref(null);
-const uploadingImage = ref(false); // 메인 이미지 업로드 중 상태
-const uploadProgress = ref(0); // 메인 이미지 업로드 진행 상태 (전역 오버레이에서는 사용 안 할 예정)
-const uploadError = ref(null); // 메인 이미지 업로드 오류 상태 (전역 오버레이에서는 사용 안 할 예정)
-
-// ✅✅✅ 기존 피치 수정 시 이미지 업로드 관련 상태 변수 추가 ✅✅✅
-const selectedExistingPitchImageFile = ref(null);
-const uploadingExistingPitchImage = ref(false);
-const uploadExistingPitchProgress = ref(0); // (전역 오버레이에서는 사용 안 할 예정)
-const uploadExistingPitchError = ref(null); // (전역 오버레이에서는 사용 안 할 예정)
-
-// ✅✅✅ 전체 이미지 업로드 상태를 나타내는 computed 속성 추가 ✅✅✅
-const isUploadingAnyImage = computed(() => {
-  return uploadingImage.value || // 메인 이미지 업로드 중
-         uploadingExistingPitchImage.value || // 기존 피치 이미지 업로드 중
-         newPitches.value.some(p => p.uploading); // 새 피치 이미지 중 하나라도 업로드 중
-});
-
-
-// Firestore에서 루트 목록을 가져오는 함수 (동일)
-const fetchRoutes = async () => {
-  console.log("[MapManagement] 루트 목록 가져오기 시작 (Firestore).");
-  loading.value = true;
-  error.value = null;
-  try {
-    const routesCollectionRef = collection(db, 'routes');
-    const q = query(routesCollectionRef);
-
-    const querySnapshot = await getDocs(q);
-
-    const routesList = [];
-    querySnapshot.forEach(doc => {
-      const routeData = doc.data();
-      routesList.push({
-        id: doc.id,
-        ...routeData
-      });
-    });
-    routes.value = routesList;
-    console.log(`[MapManagement] 루트 ${routes.value.length}개 가져옴.`, routes.value);
-
-  } catch (e) {
-    console.error("[MapManagement] 루트 목록 가져오기 오류:", e);
-    error.value = e;
-  } finally {
-    loading.value = false;
-  }
-};
-
-// 특정 루트의 피치 목록을 Firestore에서 가져오는 함수 (동일)
-const fetchPitchesForRoute = async (routeId) => {
-     if (!routeId) {
-        pitchesForRoute.value = [];
-        return;
-     }
-     console.log(`[MapManagement] 라우트 "${routeId}"의 피치 목록 가져오기 시작 (Firestore).`);
-     loadingPitches.value = true;
-     pitchError.value = null;
-     try {
-        const pitchesCollectionRef = collection(db, 'routes', routeId, 'pitches');
-        const q = query(pitchesCollectionRef, orderBy('number', 'asc'));
-
-        const querySnapshot = await getDocs(q);
-
-        const pitchesList = [];
-        querySnapshot.forEach(doc => {
-            pitchesList.push({
-                id: doc.id,
-                ...doc.data()
-            });
-        });
-        pitchesForRoute.value = pitchesList;
-        console.log(`[MapManagement] 라우트 "${routeId}"의 피치 ${pitchesForRoute.value.length}개 가져옴.`, pitchesForRoute.value);
-
-     } catch (e) {
-         console.error(`[MapManagement] 라우트 "${routeId}"의 피치 목록 가져오기 오류:`, e);
-         pitchError.value = e;
-     } finally {
-         loadingPitches.value = false;
-     }
-};
-
-
-// ✅✅✅ 새 루트 추가 시작 함수 - newPitches 및 이미지 관련 상태 초기화 추가 ✅✅✅
-const addNewRoute = () => {
-    console.log("[MapManagement] '새 루트 추가' 버튼 클릭. 폼으로 이동.");
-    editingRoute.value = { // 새 루트 기본 데이터
-        name: '',
-        location: { lat: null, lng: null },
-        overview: '',
-        climbingStyle: '',
-        gear: '',
-        difficulty: '',
-        firstAscentParty: '',
-        mainImageUrl: null
-    };
-    newPitches.value = []; // ✅ 새 피치 목록 초기화
-    selectedImageFile.value = null;
-    uploadError.value = null;
-    uploadProgress.value = 0;
-
-    // 기존 피치 수정 관련 상태도 초기화 (루트 폼에서 사용될 수 있으므로)
-    selectedExistingPitchImageFile.value = null;
-    uploadingExistingPitchImage.value = false;
-    uploadExistingPitchProgress.value = 0;
-    uploadExistingPitchError.value = null;
-
-    currentView.value = 'routeForm';
-};
-
-// 루트 수정 시작 함수 - (newPitches는 사용하지 않음, 기존 피치 이미지 상태 초기화)
-const editRoute = (route) => {
-     console.log(`[MapManagement] 루트 "${route.id}" 수정 버튼 클릭. フォームビューへ 移動.`);
-    editingRoute.value = { ...route };
-    if (route.location) {
-        editingRoute.value.location = { ...route.location };
-    } else {
-        editingRoute.value.location = { lat: null, lng: null };
-    }
-    selectedImageFile.value = null;
-    uploadError.value = null;
-    uploadProgress.value = 0;
-
-    // ✅ 기존 피치 수정 관련 상태 초기화 ✅
-    selectedExistingPitchImageFile.value = null;
-    uploadingExistingPitchImage.value = false;
-    uploadExistingPitchProgress.value = 0;
-    uploadExistingPitchError.value = null;
-
-
-    currentView.value = 'routeForm';
-};
-
-// 메인 루트 이미지 파일 선택 시 호출되는 핸들러 (동일)
-const handleImageFileChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-        selectedImageFile.value = file;
-        // uploadError.value = null; // 오류 상태는 saveRoute에서 관리
-         console.log("메인 이미지 파일 선택됨:", file.name);
-    } else {
-        selectedImageFile.value = null;
-         console.log("메인 이미지 파일 선택 취소됨.");
-    }
-};
-
-// ✅✅✅ 새 피치 이미지 파일 선택 시 호출되는 핸들러 추가 ✅✅✅
-const handlePitchImageFileChange = (event, index) => {
-     const file = event.target.files[0];
-     if (file) {
-         // 해당 인덱스의 피치 객체에 파일 및 업로드 상태 추가
-         newPitches.value[index].selectedFile = file;
-         newPitches.value[index].uploading = false; // 업로드 시작은 saveRoute에서
-         newPitches.value[index].uploadProgress = 0;
-         newPitches.value[index].uploadError = null;
-         // imagePath는 업로드 성공 후 채워집니다.
-         console.log(`피치 ${index + 1} 이미지 파일 선택됨:`, file.name);
-     } else {
-         // 파일 선택 취소 시 해당 피치 객체에서 파일 정보 제거 및 상태 초기화
-         newPitches.value[index].selectedFile = null;
-         newPitches.value[index].uploading = false;
-         newPitches.value[index].uploadProgress = 0;
-         newPitches.value[index].uploadError = null;
-         console.log(`피치 ${index + 1} 이미지 파일 선택 취소됨.`);
-     }
-};
-
-// ✅✅✅ 기존 피치 수정 시 이미지 파일 선택 핸들러 추가 ✅✅✅
-const handleExistingPitchImageFileChange = (event) => {
-     const file = event.target.files[0];
-     if (file) {
-         selectedExistingPitchImageFile.value = file;
-         // uploadExistingPitchError.value = null; // 오류 상태는 savePitch에서 관리
-         // imagePath는 업로드 성공 후 editingPitch에 반영됩니다.
-         console.log("기존 피치 이미지 파일 선택됨:", file.name);
-     } else {
-         selectedExistingPitchImageFile.value = null;
-         // uploadExistingPitchError.value = null; // 오류 상태는 savePitch에서 관리
-         console.log("기존 피치 이미지 파일 선택 취소됨.");
-     }
-};
-
-
-// ✅✅✅ 이미지 파일을 Firebase Storage에 업로드하는 범용 함수 수정 ✅✅✅
-// file 객체와 저장될 경로 접두사(pathPrefix)를 받도록 수정
-const uploadImage = async (file, pathPrefix) => { // routeId 매개변수 제거, pathPrefix 추가
-    if (!file || !pathPrefix) {
-         // 파일이나 경로가 없으면 null 반환 (오류 처리는 호출하는 곳에서)
-        return null;
-    }
-
-    // 업로드 상태는 호출하는 곳에서 설정 (메인, 새 피치, 기존 피치)
-
-    const fileName = `${Date.now()}_${file.name}`;
-    const filePath = `${pathPrefix}/${fileName}`; // 경로 접두사 사용
-    const fileStorageRef = storageRef(storage, filePath);
-
-    const uploadTask = uploadBytesResumable(fileStorageRef, file);
-
-    return new Promise((resolve, reject) => {
-        uploadTask.on('state_changed',
-            (snapshot) => {
-                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                // 업로드 진행 상태 업데이트는 호출하는 곳에서 (메인 또는 개별 피치)
-                 // 이 함수 자체에서는 상태 업데이트 하지 않음. saveRoute/savePitch에서 개별적으로 처리
-                console.log(`Upload to ${filePath} is ${progress.toFixed(0)}% done`);
-            },
-            (error) => {
-                console.error(`이미지 업로드 오류 (${filePath}):`, error);
-                // 오류 상태 업데이트는 호출하는 곳에서
-                reject(error);
-            },
-            () => {
-                console.log(`이미지 업로드 성공 (${filePath}).`);
-                getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-                    console.log(`다운로드 URL (${filePath}):`, downloadURL);
-                    // 완료 상태 업데이트는 호출하는 곳에서
-                    resolve(downloadURL);
-                }).catch(e => {
-                     console.error(`다운로드 URL 가져오기 오류 (${filePath}):`, e);
-                     // 오류 상태 업데이트는 호출하는 곳에서
-                     reject(e);
-                });
-            }
-        );
-    });
-};
-
-
-// ✅✅✅ 루트 추가/수정 저장 함수 수정 - 새 루트/피치 이미지 업로드 및 피치 함께 저장 로직 강화 ✅✅✅
-const saveRoute = async () => {
-    console.log("[MapManagement] 루트 '저장' 버튼 클릭. 저장 로직 시작.");
-    if (!editingRoute.value.name || editingRoute.value.location.lat === null || editingRoute.value.location.lng === null) {
-        alert("이름과 위치(위도, 경도)는 필수입니다.");
-        return;
-    }
-
-    // 새 루트 추가 시 피치 정보 유효성 검사
-    if (!editingRoute.value.id) {
-        if (newPitches.value.some(pitch => pitch.number === null || pitch.name === '')) {
-             alert("추가된 모든 피치의 번호와 이름을 입력해주세요.");
-             return;
-        }
-         // 피치 이미지 업로드 중인지는 isUploadingAnyImage computed 속성으로 판단
-    }
-
-
-    // 이미지 업로드 중이면 저장 중단 (isUploadingAnyImage computed 속성 사용)
-    if (isUploadingAnyImage.value) {
-        alert("이미지 업로드가 완료될 때까지 기다려 주세요.");
-        return;
-    }
-
-
-    try {
-        loading.value = true; // 전체 저장 로딩 시작
-        // 이미지 업로드 관련 오류 상태는 개별 업로드 핸들러나 saveRoute/savePitch 내에서 설정
-
-
-        let routeIdToSave = editingRoute.value.id; // 저장할 루트 ID
-
-        // --- 새 루트 추가 시: 문서를 먼저 생성하여 ID 확보 ---
-        if (!routeIdToSave) {
-             console.log("새 루트 감지됨. 먼저 문서 추가하여 ID 확보.");
-             const routesCollectionRef = collection(db, 'routes');
-             const routeToAddTemp = { ...editingRoute.value };
-             delete routeToAddTemp.id;
-             delete routeToAddTemp.mainImageUrl;
-             delete routeToAddTemp.newPitches; // newPitches는 Firestore에 저장하는 필드가 아님
-
-             const tempDocRef = await addDoc(routesCollectionRef, { name: routeToAddTemp.name || '새 루트 (임시)', createdAt: new Date() });
-             routeIdToSave = tempDocRef.id;
-             console.log("새 문서 ID 확보:", routeIdToSave);
-             editingRoute.value.id = routeIdToSave; // 확보한 ID를 편집 중인 객체에 할당 (후속 업로드/저장에 사용)
-         }
-        // --- ID 확보 로직 끝 ---
-
-
-        // ✅ 메인 이미지 업로드 (새 루트 또는 기존 루트 수정 시) ✅
-        let mainImageUrlToSave = editingRoute.value.mainImageUrl;
-        if (selectedImageFile.value) {
-             console.log("새 메인 이미지 파일 감지됨. 업로드 시작.");
-             uploadingImage.value = true; // 메인 이미지 업로드 상태 활성화
-             uploadError.value = null; // 오류 상태 초기화
-             try {
-                // 경로 접두사 전달
-                mainImageUrlToSave = await uploadImage(selectedImageFile.value, `routes/${routeIdToSave}`);
-                 console.log("메인 이미지 업로드 완료. URL:", mainImageUrlToSave);
-             } catch (e) {
-                 uploadError.value = `메인 이미지 업로드 실패: ${e.message}`;
-                 console.error("[MapManagement] 메인 이미지 업로드 오류:", e);
-                 // 이미지 업로드 실패 시 전체 저장 취소
-                 alert(`메인 이미지 업로드 실패: ${e.message}\n루트 저장을 취소합니다.`);
-                 return; // 저장 프로세스 중단
-             } finally {
-                 uploadingImage.value = false; // Ensure state is always reset
-                 uploadProgress.value = 100; // Indicate completion (whether success or failure captured above)
-             }
-        }
-
-
-        // ✅✅✅ 새 루트 추가 시 피치 이미지들 업로드 ✅✅✅
-        if (!editingRoute.value?.originalId && newPitches.value.length > 0) {
-             console.log(`새 루트(${routeIdToSave})의 피치 이미지 ${newPitches.value.filter(p => p.selectedFile).length}개 업로드 시작.`);
-
-             const pitchUploadPromises = newPitches.value.map(async (pitch, index) => {
-                 if (pitch.selectedFile) {
-                     // 피치별 업로드 상태 활성화
-                     newPitches.value[index].uploading = true;
-                     newPitches.value[index].uploadProgress = 0;
-                     newPitches.value[index].uploadError = null;
-                     try {
-                         // 피치 이미지 업로드 경로 접두사: routes/{routeId}/pitch_images
-                         const pitchImageUrl = await uploadImage(pitch.selectedFile, `routes/${routeIdToSave}/pitch_images`); // 경로 접두사 전달
-                         newPitches.value[index].imagePath = pitchImageUrl; // 업로드 성공 시 imagePath 업데이트
-                         newPitches.value[index].uploadProgress = 100;
-                         console.log(`피치 ${index + 1} 이미지 업로드 완료. URL: ${pitchImageUrl}`);
-                     } catch (e) {
-                         newPitches.value[index].uploadError = `이미지 업로드 실패: ${e.message}`;
-                         console.error(`[MapManagement] 피치 ${index + 1} 이미지 업로드 오류:`, e);
-                         throw e; // Promise.all에서 오류를 잡도록 예외 발생
-                     } finally {
-                         newPitches.value[index].uploading = false; // 피치별 업로드 상태 해제
-                     }
-                 }
-                 return pitch; // 파일이 없거나 업로드된 피치 객체 반환
-             }).filter(Boolean); // null 또는 undefined가 아닌 Promise만 필터링 (파일 없는 피치는 Promise를 반환하지 않음)
-
-             try {
-                 // 모든 피치 이미지 업로드가 완료될 때까지 대기
-                 await Promise.all(pitchUploadPromises);
-                 console.log("모든 피치 이미지 업로드 완료.");
-             } catch (e) {
-                 // 하나라도 업로드 실패 시 전체 저장 취소
-                 // loading.value = false; // 전체 로딩 해제는 finally에서
-                 alert(`피치 이미지 업로드 중 오류 발생: ${e.message}\n루트 및 피치 저장을 취소합니다.`);
-                 return; // 저장 프로세스 중단
-             }
-        }
-
-        // ✅✅✅ 기존 피치 수정 시 피치 이미지 업로드 ✅✅✅
-         // 이 로직은 savePitch 함수로 이동되었습니다. saveRoute에서는 루트 정보만 업데이트합니다.
-         // editingRoute.value?.originalId가 true인 경우는 기존 루트 수정이므로,
-         // 피치 수정/추가는 pitchList 뷰와 savePitch 함수에서 별도로 처리됩니다.
-
-
-        // ✅✅✅ 루트 문서 최종 업데이트 ✅✅✅
-        console.log(`[MapManagement] 루트 문서 "${routeIdToSave}" 최종 데이터 업데이트 시작.`);
-        const routeRef = doc(db, 'routes', routeIdToSave);
-        const finalRouteDataToUpdate = { ...editingRoute.value };
-        delete finalRouteDataToUpdate.id;
-        delete finalRouteDataToUpdate.newPitches; // 피치 데이터는 서브컬렉션에 저장
-
-        // 메인 이미지 URL 최종 반영
-        finalRouteDataToUpdate.mainImageUrl = mainImageUrlToSave;
-
-        await updateDoc(routeRef, finalRouteDataToUpdate);
-        console.log(`[MapManagement] 루트 문서 "${routeIdToSave}" 최종 업데이트 완료.`);
-
-
-        // ✅✅✅ 새 루트 추가 시에만 피치 서브컬렉션에 피치 문서들 추가 (이미지 URL 포함) ✅✅✅
-        if (!editingRoute.value?.originalId && newPitches.value.length > 0) {
-            console.log(`[MapManagement] 새 루트 (${routeIdToSave})에 피치 ${newPitches.value.length}개 문서 추가 시작 (배치).`);
-            const batch = writeBatch(db); // 배치 쓰기 시작
-
-            newPitches.value.forEach(pitch => {
-                 const pitchData = { ...pitch };
-                 delete pitchData.id; // Firestore ID는 자동 생성
-                 // 업로드 관련 임시 상태는 저장 안 함
-                 delete pitchData.selectedFile;
-                 delete pitchData.uploading;
-                 delete pitchData.uploadProgress;
-                 delete pitchData.uploadError;
-
-                 // number, bolts 필드 숫자 형변환 확인
-                 pitchData.number = Number(pitchData.number);
-                 if (pitchData.bolts !== null && pitchData.bolts !== undefined) {
-                    // ✅ Fix: Changed dataToUpdate.bolts to pitchData.bolts
-                    pitchData.bolts = Number(pitchData.bolts);
-                 } else {
-                    delete pitchData.bolts;
-                 }
-                 // imagePath 필드에는 업로드된 이미지 URL이 이미 담겨있습니다.
-
-                 const pitchDocRef = doc(collection(db, 'routes', routeIdToSave, 'pitches')); // 새 피치 문서 참조 (ID 자동 생성)
-                 batch.set(pitchDocRef, pitchData); // set 사용 (addDoc은 배치에서 직접 사용 불가)
-            });
-
-            await batch.commit(); // 배치 실행
-            console.log(`[MapManagement] 새 루트 (${routeIdToSave})에 피치 ${newPitches.value.length}개 문서 추가 완료 (배치).`);
-             alert(`새 루트 및 피치 ${newPitches.value.length}개가 추가되었습니다.`);
-
-        } else if (editingRoute.value?.originalId) { // 기존 루트 수정 완료 시 (루트 정보만 업데이트)
-             // 피치 수정은 savePitch 함수에서 별도로 처리됨
-             alert("루트 정보가 수정되었습니다.");
-        }
-
-
-        // 저장 후 루트 목록 새로고침 및 목록 뷰로 전환
-        await fetchRoutes(); // 루트 목록 새로고침
-        currentView.value = 'routeList'; // 루트 목록 뷰로 전환
-
-        // 상태 초기화
-        selectedImageFile.value = null;
-        editingRoute.value = null;
-        newPitches.value = []; // 새 루트 피치 목록 초기화 (이미지 관련 상태 포함)
-        selectedExistingPitchImageFile.value = null; // 기존 피치 이미지 파일 상태 초기화
-
-
-    } catch (e) {
-        console.error("[MapManagement] 저장 작업 중 최종 오류:", e);
-         alert(`저장 중 오류 발생: ${e.message}`);
-         error.value = e;
-         // Ensure all uploading flags are false on global error catch as well
-         uploadingImage.value = false; // Redundant if finally is always hit, but safe
-         uploadingExistingPitchImage.value = false; // Should already be false for new route
-         newPitches.value.forEach(p => p.uploading = false); // Ensure individual flags are off
-    } finally {
-         loading.value = false; // 전체 로딩 완료
-         // 개별 업로드 상태는 해당 로직에서 이미 해제됨
-    }
-};
-
-// 피치 관리 시작 함수 (동일)
-const managePitches = (routeId) => {
-    console.log(`[MapManagement] 루트 "${routeId}" 피치 관리 버튼 클릭. 피치 목록 뷰로 이동.`);
-    selectedRouteId.value = routeId;
-    const route = routes.value.find(r => r.id === routeId);
-    selectedRoute.value = route ? { ...route } : null;
-
-    // 피치 관리 뷰로 이동할 때 기존 피치 이미지 업로드 상태 초기화
-    selectedExistingPitchImageFile.value = null;
-    uploadingExistingPitchImage.value = false;
-    uploadExistingPitchProgress.value = 0;
-    uploadExistingPitchError.value = null;
-
-    currentView.value = 'pitchList';
-};
-
-
-// 특정 루트의 피치 목록 가져오기 - selectedRouteId 변경 감지 (동일)
-watch(selectedRouteId, (newRouteId) => {
-    console.log(`[MapManagement] selectedRouteId 변경 감지: ${newRouteId}`);
-    fetchPitchesForRoute(newRouteId);
-}, { immediate: false });
-
-
-// ✅✅✅ 새 피치 추가 함수 (새 루트 폼에서 사용) - 이미지 업로드 관련 상태 추가 ✅✅✅
-const addPitchToNewRoute = () => {
-    console.log("[MapManagement] '피치 추가' 버튼 클릭 (새 루트 폼).");
-     // newPitches 배열에 빈 피치 객체 추가
-     newPitches.value.push({
-        // id는 Firestore 저장 시 자동 생성되므로 여기서 임시 id는 필요 없습니다.
-        number: null, // 피치 번호
-        name: '', // 피치 이름
-        length: '', // 길이
-        difficulty: '', // 난이도
-        climbingStyle: '', // 형태
-        bolts: null, // 볼트 개수
-        imagePath: '', // 이미지 URL (업로드 성공 후 채워짐)
-        // ✅ 새로 추가된 이미지 업로드 관련 상태 ✅
-        selectedFile: null, // 사용자가 선택한 이미지 파일 객체
-        uploading: false, // 이미지 업로드 중 상태
-        uploadProgress: 0, // 이미지 업로드 진행률
-        uploadError: null // 이미지 업로드 오류 메시지
-        // TODO: 필요한 다른 피치 필드 추가
-     });
-     // 추가 후 자동으로 스크롤 이동 등을 구현하여 사용자 편의성을 높일 수 있습니다.
-};
-
-// ✅✅✅ 피치 삭제 함수 (새 루트 폼에서 사용) (동일) ✅✅✅
-const removePitchFromNewRoute = (index) => {
-    console.log(`[MapManagement] 피치 ${index + 1} 삭제 버튼 클릭 (새 루트 폼).`);
-     // newPitches 배열에서 해당 인덱스의 피치 제거
-     if (confirm(`${index + 1}번째 피치를 삭제하시겠습니까?`)) {
-         newPitches.value.splice(index, 1);
-         console.log(`[MapManagement] ${index + 1}번째 피치 삭제됨.`);
-     }
-};
-
-
-// 새 피치 추가 시작 함수 - 피치 폼 뷰로 전환 (기존 피치 관리에서 사용) (동일)
-const addNewPitch = () => {
-    console.log("[MapManagement] 새 피치 추가 버튼 클릭 (피치 관리).");
-    if (!selectedRouteId.value) {
-        alert("피치를 추가할 루트가 선택되지 않았습니다.");
-        return;
-    }
-     editingPitch.value = { // 새 피치 기본 데이터
-        number: null,
-        name: '',
-        length: '',
-        difficulty: '',
-        climbingStyle: '',
-        bolts: null,
-        imagePath: null, // 새 피치 이미지 경로
-         // 피치 관리에서 새 피치 추가 시 이미지 업로드 필드 활성화를 위해 상태 초기화
-         // savePitch 함수에서 이 경로의 이미지 업로드 로직 구현 필요
-         selectedFile: null, // 새 피치 추가 폼에서는 사용자가 파일을 선택하므로 필요
-         uploading: false,
-         uploadProgress: 0,
-         uploadError: null,
-     };
-    // 기존 피치 수정 관련 상태도 초기화 (새 피치 추가 폼에서 사용되지 않도록)
-    selectedExistingPitchImageFile.value = null;
-    uploadingExistingPitchImage.value = false;
-    uploadExistingPitchProgress.value = 0;
-    uploadExistingPitchError.value = null;
-
-     currentView.value = 'pitchForm';
-};
-
-// 피치 수정 시작 함수 - 피치 폼 뷰로 전환 (기존 피치 관리에서 사용) (동일)
-const editPitch = (pitch) => {
-    console.log(`[MapManagement] 피치 "${pitch.id}" 수정 버튼 클릭 (피치 관리).`);
-    editingPitch.value = { ...pitch };
-     // 기존 피치 수정 시 이미지 업로드 관련 상태 초기화
-     selectedExistingPitchImageFile.value = null;
-     uploadingExistingPitchImage.value = false;
-     uploadExistingPitchProgress.value = 0;
-     uploadExistingPitchError.value = null;
-     // editingPitch에 선택된 파일 정보는 필요 없으므로 null로 초기화
-     editingPitch.value.selectedFile = null;
-     editingPitch.value.uploading = false;
-     editingPitch.value.uploadProgress = 0;
-     editingPitch.value.uploadError = null;
-
-
-     currentView.value = 'pitchForm';
-};
-
-// ✅✅✅ 피치 추가/수정 저장 함수 수정 - 이미지 업로드 로직 추가 ✅✅✅
-const savePitch = async () => {
-    console.log("[MapManagement] 피치 '저장' 버튼 클릭.");
-     if (!selectedRouteId.value) {
-         console.error("[MapManagement] 오류: 피치를 저장할 루트가 선택되지 않았습니다.");
-         alert("피치를 저장할 루트 정보를 찾을 수 없습니다.");
-         return;
-     }
-    if (editingPitch.value.number === null || editingPitch.value.name === '') {
-        alert("피치 번호와 이름은 필수입니다.");
-        return;
-    }
-
-     // 이미지 업로드 중이면 저장 중단 (isUploadingAnyImage computed 속성 사용)
-     if (isUploadingAnyImage.value) {
-         alert("이미지 업로드가 완료될 때까지 기다려 주세요.");
-         return;
-     }
-
-
-    try {
-         loadingPitches.value = true; // 피치 저장 로딩 시작
-         // 이미지 업로드 관련 오류 상태는 여기서 초기화하거나 savePitch 내에서 관리
-
-
-         if (editingPitch.value.id) {
-             // ✅ 기존 피치 수정 로직 ✅
-
-             // ✅✅✅ 기존 피치 수정 시 이미지 업로드 로직 ✅✅✅
-              if (selectedExistingPitchImageFile.value) {
-                   console.log(`기존 피치(${editingPitch.value.id}) 새 이미지 업로드 시작.`);
-                   uploadingExistingPitchImage.value = true; // 업로드 상태 활성화
-                   uploadExistingPitchProgress.value = 0;
-                   uploadExistingPitchError.value = null; // 오류 상태 초기화
-                   try {
-                      // 피치 이미지 업로드 경로 접두사: routes/{routeId}/pitch_images
-                      const existingPitchImageUrl = await uploadImage(selectedExistingPitchImageFile.value, `routes/${selectedRouteId.value}/pitch_images`); // 경로 접두사 전달
-                      editingPitch.value.imagePath = existingPitchImageUrl; // editingPitch 객체의 imagePath 업데이트
-                      uploadExistingPitchProgress.value = 100;
-                      console.log(`기존 피치(${editingPitch.value.id}) 이미지 업로드 완료. URL: ${existingPitchImageUrl}`);
-                   } catch (e) {
-                       uploadExistingPitchError.value = `이미지 업로드 실패: ${e.message}`;
-                       console.error(`[MapManagement] 기존 피치(${editingPitch.value.id}) 이미지 업로드 오류:`, e);
-                       // Image upload failed, stop saving the pitch
-                       alert(`기존 피치 이미지 업로드 실패: ${e.message}\n피치 저장을 취소합니다.`);
-                       return; // 저장 프로세스 중단
-                   } finally {
-                       uploadingExistingPitchImage.value = false; // Ensure state is always reset
-                       uploadExistingPitchProgress.value = 100; // Indicate completion
-                   }
+  </template>
+  
+  <script setup>
+  import { ref, onMounted } from 'vue';
+  import { db, storage } from '@/firebase';
+  import { collection, getDocs, getDoc, addDoc, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp } from 'firebase/firestore';
+  import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+  
+  // 분리된 하위 컴포넌트 임포트
+  import RouteListView from './RouteListView.vue';
+  import RouteFormView from './RouteFormView.vue';
+  
+  
+  // RouteFormView 자식 컴포넌트 인스턴스에 접근하기 위한 ref
+  const routeFormRef = ref(null);
+  
+  
+  // 상태 변수 (공유 및 메인 관리)
+  const routes = ref([]);
+  const loading = ref(true); // 목록 로딩 상태 (fetchRoutes 함수에서 사용)
+  const fetchError = ref(null); // 목록 로딩 오류 상태
+  
+  const isEditing = ref(false); // 수정 모드 상태
+  const routeToEdit = ref(null); // 수정할 루트 데이터 객체 (폼 컴포트로 전달)
+  const currentRoutePitches = ref([]); // 현재 수정 중인 루트의 피치 목록
+  const pitchError = ref(null); // 피치 관리 관련 오류 상태
+  
+  
+  const showConfirmModal = ref(false); // 루트 삭제 확인 모달 표시 상태
+  const routeToDeleteId = ref(null); // 삭제할 루트의 ID
+  
+  const showFormModal = ref(false); // 폼 모달 표시 상태
+  
+  
+  const saveError = ref(null); // 루트 저장 중 오류 상태
+  const deleteError = ref(null); // 루트 삭제 중 오류 상태
+  
+  
+  // Firestore 컬렉션 참조
+  const routesCollectionRef = collection(db, 'routes');
+  
+  // 날짜 포맷팅 헬퍼 함수 (공유)
+  const formatDate = (timestamp) => {
+    if (!timestamp) return '정보 없음';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const year = date.getFullYear();
+    const month = ('0' + (date.getMonth() + 1)).slice(-2);
+    const day = ('0' + date.getDate()).slice(-2);
+    const hours = ('0' + date.getHours()).slice(-2);
+    const minutes = ('0' + date.getMinutes()).slice(-2);
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  };
+  
+  
+  // 이미지 업로드 함수 (메인 관리 - 루트 및 피치 이미지) - pathPrefix 활용
+  const uploadImage = async (file, pathPrefix) => {
+      if (!file) return null;
+  
+      const fileName = `${Date.now()}_${file.name}`;
+      const storagePath = `${pathPrefix}/${fileName}`; // 예: 'routes/ROUTE_ID/image.png' 또는 'routes/ROUTE_ID/pitches/PITCH_ID/image.png'
+  
+      console.log(`[MapManagement] Storage 파일 업로드 시작: ${storagePath}`);
+  
+      const imageRef = storageRef(storage, storagePath);
+      const uploadTask = uploadBytesResumable(imageRef, file);
+  
+      return new Promise((resolve, reject) => {
+          uploadTask.on('state_changed',
+              (snapshot) => { /* 진행 상태 모니터링 (선택 사항) */ },
+              (error) => { console.error(`[MapManagement] 이미지 업로드 오류 (${storagePath}):`, error); reject(error); },
+              () => {
+                  getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+                      console.log(`[MapManagement] 이미지 업로드 성공. 다운로드 URL: ${downloadURL}`);
+                      resolve(downloadURL);
+                  }).catch(reject);
               }
-
-             // ✅ 기존 피치 문서 업데이트 (이미지 URL 업데이트 포함) ✅
-             const pitchRef = doc(db, 'routes', selectedRouteId.value, 'pitches', editingPitch.value.id);
-             const dataToUpdate = { ...editingPitch.value };
-             delete dataToUpdate.id;
-             // 업로드 관련 임시 상태는 저장 안 함
-             delete dataToUpdate.selectedFile;
-             delete dataToUpdate.uploading;
-             delete dataToUpdate.uploadProgress;
-             delete dataToUpdate.uploadError;
-
-
-             dataToUpdate.number = Number(dataToUpdate.number);
-             if (dataToUpdate.bolts !== null && dataToUpdate.bolts !== undefined) {
-                 dataToUpdate.bolts = Number(dataToUpdate.bolts);
-             } else {
-                 delete dataToUpdate.bolts;
-             }
-             // imagePath 필드에는 업로드된 이미지 URL이 이미 담겨있습니다.
-
-             await updateDoc(pitchRef, dataToUpdate);
-             console.log(`[MapManagement] 라우트 "${selectedRouteId.value}" 의 피치 "${editingPitch.value.id}" 수정 완료 (이미지 업데이트 포함).`);
-             alert("피치가 수정되었습니다.");
-         } else {
-             // ✅ 새 피치 추가 (피치 관리 페이지에서) 로직 ✅
-             // 이 경로는 새 루트 추가 시 피치 동시 등록 기능 때문에 잘 사용되지 않을 수 있습니다.
-             // 여기서 피치 이미지 업로드 기능은 현재 구현되지 않았습니다.
-             // 만약 여기서도 이미지 업로드를 원하시면 별도의 로직 구현이 필요합니다.
-             // (새 피치 추가 폼의 이미지 필드는 현재는 텍스트 입력 필드입니다)
-
-             console.log(`[MapManagement] 라우트 "${selectedRouteId.value}"에 새 피치 추가 (피치 관리). 이미지 업로드는 미지원.`);
-             const pitchesCollectionRef = collection(db, 'routes', selectedRouteId.value, 'pitches');
-             const pitchToAdd = { ...editingPitch.value };
-             delete pitchToAdd.id; // Firestore ID는 자동 생성
-             // 업로드 관련 임시 상태는 저장 안 함 (이 경로에서는 해당 필드가 없을 것으로 예상되나 안전하게 삭제)
-             delete pitchToAdd.selectedFile;
-             delete pitchToAdd.uploading;
-             delete pitchToAdd.uploadProgress;
-             delete pitchToAdd.uploadError;
-
-             pitchToAdd.number = Number(pitchToAdd.number);
-             if (pitchToAdd.bolts !== null && pitchToAdd.bolts !== undefined) {
-                 pitchToAdd.bolts = Number(pitchToAdd.bolts);
-             } else {
-                 delete pitchToAdd.bolts;
-             }
-             // imagePath 필드는 여기서 직접 입력받거나 (현재 폼처럼) 아니면 업로드 로직 추가 필요
-
-             const docRef = await addDoc(pitchesCollectionRef, pitchToAdd);
-             console.log(`[MapManagement] 라우트 "${selectedRouteId.value}"에 새 피치 추가 완료. ID: ${docRef.id}`);
-             alert("새 피치가 추가되었습니다.");
-         }
-
-         await fetchPitchesForRoute(selectedRouteId.value);
-         currentView.value = 'pitchList';
-         editingPitch.value = null; // 수정 중 피치 초기화
-         selectedExistingPitchImageFile.value = null; // 파일 상태 초기화 (수정 시)
-
-
+          );
+      });
+  };
+  
+  // Storage에서 파일 삭제 함수 (메인 관리 - 루트 및 피치 이미지)
+  const deleteFileFromStorage = async (fileUrl) => {
+      if (!fileUrl || (!fileUrl.startsWith('gs://') && !fileUrl.startsWith('http'))) {
+           console.warn("[MapManagement] 유효한 Storage 파일 URL이 아닙니다. 삭제를 건너뜁니다.", fileUrl);
+           return;
+      }
+      try {
+          let storagePath;
+          if (fileUrl.startsWith('gs://')) {
+              const pathSegments = fileUrl.substring(5).split('/');
+              storagePath = pathSegments.slice(1).join('/');
+          } else if (fileUrl.startsWith('http')) {
+              const url = new URL(fileUrl);
+              const pathSegments = url.pathname.split('/');
+               const oIndex = pathSegments.indexOf('o');
+               if (oIndex !== -1 && pathSegments.length > oIndex + 1) {
+                   // /o/ 이후의 경로를 디코딩하여 사용
+                   storagePath = decodeURIComponent(pathSegments.slice(oIndex + 1).join('/'));
+               } else {
+                   console.warn("[MapManagement] HTTP URL에서 Storage 경로를 파싱할 수 없습니다. 삭제를 건너옴.", fileUrl);
+                   return;
+               }
+          } else {
+              console.warn("[MapManagement] 알 수 없는 형식의 파일 URL입니다. 삭제를 건너옴.", fileUrl);
+              return;
+          }
+  
+          console.log(`[MapManagement] Storage 파일 삭제 시도: ${storagePath}`);
+          const fileRef = storageRef(storage, storagePath);
+          await deleteObject(fileRef);
+          console.log(`[MapManagement] Storage 파일 삭제 완료: ${storagePath}`);
+  
+      } catch (error) {
+          // 파일이 이미 없거나 접근 권한이 없는 경우 오류가 발생할 수 있으나,
+          // 이 함수는 best-effort로 동작하도록 합니다.
+          console.error(`[MapManagement] Storage 파일 삭제 오류 (${fileUrl}):`, error);
+      }
+  };
+  
+  // 루트 목록 가져오기 (메인 관리) - 새로운 필드 포함
+  const fetchRoutes = async () => {
+    loading.value = true; // 목록 로딩 상태 시작
+    fetchError.value = null; // 목록 오류 초기화
+    try {
+       const q = query(routesCollectionRef, orderBy('timestamp', 'desc'));
+      const querySnapshot = await getDocs(q);
+  
+      const routesList = [];
+      querySnapshot.forEach(doc => {
+        // Include new fields when fetching
+        routesList.push({
+          id: doc.id,
+          ...doc.data(),
+          climbingOverview: doc.data().climbingOverview || '', // 새로운 필드 포함
+          climbingStyle: doc.data().climbingStyle || '',     // 새로운 필드 포함
+          climbingGear: doc.data().climbingGear || '',       // 새로운 필드 포함
+          averageDifficulty: doc.data().averageDifficulty || '', // 이름 변경된 필드 포함
+          developer: doc.data().developer || '',             // 새로운 필드 포함
+        });
+      });
+      routes.value = routesList;
+      console.log(`[MapManagement] ${routes.value.length}개 루트 가져옴.`, routes.value);
+  
     } catch (e) {
-        console.error("[MapManagement] 피치 저장 오류:", e);
-        alert(`피치 저장 중 오류 발생: ${e.message}`);
-        pitchError.value = e;
+      console.error("[MapManagement] 루트 목록 가져오기 오류:", e);
+      fetchError.value = e; // 목록 오류 상태 설정
     } finally {
-         loadingPitches.value = false; // 피치 저장 로딩 완료
-         // 업로드 상태는 해당 로직에서 해제됨
+      loading.value = false; // 목록 로딩 상태 완료
     }
-};
-
-
-// 피치 폼에서 취소 함수 (동일)
-const cancelPitchEdit = () => {
-    console.log("[MapManagement] 피치 폼에서 '취소' 버튼 클릭.");
-    editingPitch.value = null;
-    selectedExistingPitchImageFile.value = null; // 파일 상태 초기화
-    uploadingExistingPitchImage.value = false;
-    uploadExistingPitchProgress.value = 0;
-    uploadExistingPitchError.value = null;
-    currentView.value = 'pitchList';
-};
-
-// 피치 삭제 함수 구현 (동일)
-const deletePitch = async (routeId, pitchId) => { /* ... 동일 ... */ };
-
-
-// 컴포넌트 마운트 시 루트 목록 가져오기 (동일)
-onMounted(() => {
-  fetchRoutes();
-});
-</script>
-
-<style scoped>
-/* ✅✅✅ Admin 지도 관리 페이지 스타일 - 피치 정보 입력 섹션 관련 스타일 추가 ✅✅✅ */
-.admin-map-management {
-    padding: 20px;
-    max-width: 900px;
-    margin: 20px auto;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    position: relative; /* 로딩 오버레이 기준점 */
-}
-
-.admin-map-management h2 {
-    text-align: center;
-    margin-bottom: 20px;
-    color: #333;
-}
-
-.add-button {
-    display: block;
-    margin: 0 auto 20px;
-    padding: 10px 20px;
-    background-color: #28a745;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 1em;
-    transition: background-color 0.2s ease;
-}
-.add-button:hover {
-    background-color: #218838;
-}
-
-/* -------------- 목록 스타일 (루트/피치 공통) -------------- */
-.route-list, .pitch-list {
-    margin-top: 20px;
-    border-top: 1px solid #eee;
-    padding-top: 20px;
-}
-
-.route-list h3, .pitch-list h3 {
-    font-size: 1.3em;
-    margin-bottom: 15px;
-    color: #555;
-}
-
-.route-list ul, .pitch-list ul {
-    list-style: none;
+  };
+  
+  // 특정 루트의 피치 목록 가져오기
+  const fetchPitchesForRoute = async (routeId) => {
+      if (!routeId) {
+          console.warn("[MapManagement] fetchPitchesForRoute: routeId가 제공되지 않았습니다.");
+          currentRoutePitches.value = [];
+          return;
+      }
+       console.log(`[MapManagement] 라우트 "${routeId}"의 피치 목록 가져오기 시작.`);
+       pitchError.value = null; // 피치 오류 초기화
+      try {
+           // routes/{routeId}/pitches 서브컬렉션 참조
+          const pitchesCollectionRef = collection(db, 'routes', routeId, 'pitches');
+           // 피치 번호 순으로 정렬하여 조회
+          const q = query(pitchesCollectionRef, orderBy('number', 'asc'));
+          const querySnapshot = await getDocs(q);
+  
+          const pitchesList = [];
+          querySnapshot.forEach(doc => {
+              pitchesList.push({
+                  id: doc.id, // 피치 문서 ID
+                  ...doc.data() // 피치 데이터 (number, name, length, difficulty, climbingStyle, bolts, imagePath 등)
+              });
+          });
+           currentRoutePitches.value = pitchesList; // 가져온 피치 목록으로 상태 업데이트
+          console.log(`[MapManagement] 라우트 "${routeId}"의 피치 ${pitchesList.length}개 가져옴.`, currentRoutePitches.value);
+  
+      } catch (e) {
+          console.error(`[MapManagement] 라우트 "${routeId}"의 피치 목록 가져오기 오류:`, e);
+          pitchError.value = e; // 피치 오류 상태 설정
+          currentRoutePitches.value = []; // 오류 발생 시 목록 초기화
+      }
+  };
+  
+  
+  // 루트 추가/수정 저장 처리 (메인 관리) - 새로운 필드 저장
+  // RouteFormView 컴포넌트로부터 'save' 이벤트 발생 시 호출됨
+  const handleSaveRoute = async (formData) => {
+      console.log("[MapManagement] 'save' 이벤트 수신. 데이터:", formData);
+  
+      saveError.value = null; // 저장 오류 초기화
+  
+      const isAdding = !formData.id; // ID가 없으면 추가 모드
+      const routeId = formData.id; // 수정 모드 시 ID
+  
+      let imageUrlToSave = null; // 최종적으로 문서에 저장될 이미지 URL
+  
+      try {
+          if (isAdding) {
+              // ⭐⭐ 추가 모드 ⭐⭐
+              console.log("[MapManagement] 새 루트 추가 시작. 문서 생성 먼저.");
+  
+              // 1. 이미지 업로드 없이 문서 먼저 추가하여 ID 확보
+              const newRouteData = {
+                   name: formData.name,
+                   location: formData.location,
+                   // Include new fields when adding
+                   climbingOverview: formData.climbingOverview || '', // 새로운 필드 포함
+                   climbingStyle: formData.climbingStyle || '',     // 새로운 필드 포함
+                   climbingGear: formData.climbingGear || '',       // 새로운 필드 포함
+                   averageDifficulty: formData.averageDifficulty || '', // 이름 변경된 필드 포함
+                   developer: formData.developer || '',             // 새로운 필드 포함
+                   timestamp: serverTimestamp(),
+              };
+              const newRouteRef = await addDoc(routesCollectionRef, newRouteData);
+              const finalRouteId = newRouteRef.id; // 새로 생성된 문서 ID 확보
+              console.log(`[MapManagement] 문서 생성 완료, ID: ${finalRouteId}`);
+  
+              // 2. 새 이미지가 선택되었다면, 확보한 ID를 사용하여 최종 경로로 업로드
+              if (formData.selectedImageFile) {
+                   console.log(`[MapManagement] 새 이미지 업로드 시작 (ID: ${finalRouteId}).`);
+                   // 루트 이미지 경로: routes/${routeId}/image.png 형태
+                   const uploadedUrl = await uploadImage(formData.selectedImageFile, `routes/${finalRouteId}`);
+                   // 업로드된 URL로 문서 업데이트
+                   await updateDoc(newRouteRef, { imageUrl: uploadedUrl });
+                   imageUrlToSave = uploadedUrl; // 저장된 URL 기록
+                   console.log(`[MapManagement] 문서 ${finalRouteId}에 이미지 URL 업데이트 완료.`);
+              }
+  
+               // 저장 완료 메시지 및 후처리
+              console.log(`[MapManagement] 새 루트 추가 및 이미지 처리 완료: ${finalRouteId}`);
+              alert('새 루트가 성공적으로 추가되었습니다.');
+  
+          } else {
+              // ⭐⭐ 수정 모드 ⭐⭐
+              console.log(`[MapManagement] 루트 수정 시작: ${routeId}`);
+              const routeRef = doc(db, 'routes', routeId);
+  
+               // 기존 루트 데이터 가져오기 (Storage 이미지 URL 확인용)
+               const oldRouteDocSnapshot = await getDoc(doc(db, 'routes', routeId));
+               const oldRoute = oldRouteDocSnapshot.exists() ? oldRouteDocSnapshot.data() : null;
+               const oldImageUrl = oldRoute?.imageUrl || null;
+               console.log(`[MapManagement] 기존 이미지 URL: ${oldImageUrl}`);
+  
+              // 1. 이미지 처리 (기존 이미지 삭제 및 새 이미지 업로드)
+              if (formData.selectedImageFile) {
+                  // 새 이미지가 선택됨
+                   console.log("[MapManagement] 새 이미지 파일 감지.");
+                  // 기존 이미지가 Storage에 있다면 삭제
+                  if (oldImageUrl) {
+                       console.log("[MapManagement] 기존 이미지 삭제 시도.");
+                       await deleteFileFromStorage(oldImageUrl);
+                  }
+                  // 새 이미지 업로드 (루트 ID를 경로에 포함)
+                   console.log(`[MapManagement] 새 이미지 업로드 시작 (ID: ${routeId}).`);
+                   // 루트 이미지 경로: routes/${routeId}/image.png 형태
+                  imageUrlToSave = await uploadImage(formData.selectedImageFile, `routes/${routeId}`);
+                   console.log(`[MapManagement] 새 이미지 업로드 완료: ${imageUrlToSave}`);
+  
+              } else if (formData.removeExistingImage) {
+                  // 기존 이미지 제거 요청됨 (새 파일 선택 안함)
+                   console.log("[MapManagement] 기존 이미지 제거 요청 감지.");
+                  if (oldImageUrl) {
+                       console.log("[MapManagement] 기존 이미지 삭제 시도.");
+                       await deleteFileFromStorage(oldImageUrl);
+                  }
+                  imageUrlToSave = null; // 문서에서 이미지 URL 필드 제거
+  
+              } else {
+                   // 이미지 변경 없음 (새 파일 선택 안함, 제거 요청 안함)
+                   console.log("[MapManagement] 이미지 변경 없음. 기존 이미지 URL 유지.");
+                   // pitchImageUrlToSave는 oldPitchImageUrl로 이미 초기화되어 있습니다.
+              }
+  
+  
+              // 2. Firestore 문서 업데이트
+               const updatedRouteData = {
+                   name: formData.name,
+                   location: formData.location,
+                   // Include new fields when updating
+                   climbingOverview: formData.climbingOverview || '',
+                   climbingStyle: formData.climbingStyle || '',
+                   climbingGear: formData.climbingGear || '',
+                   averageDifficulty: formData.averageDifficulty || '', // 이름 변경된 필드 포함
+                   developer: formData.developer || '',
+                   imageUrl: imageUrlToSave, // 처리된 이미지 URL
+               };
+              await updateDoc(routeRef, updatedRouteData);
+  
+              console.log(`[MapManagement] 루트 수정 완료: ${routeId}`);
+              alert('루트가 성공적으로 수정되었습니다.');
+          }
+  
+          // 저장 완료 후 후처리 (추가/수정 공통)
+          resetForm(); // 폼 초기화 (모달 닫기 포함)
+          fetchRoutes(); // 리스트를 재취득
+  
+      } catch (e) {
+          console.error("[MapManagement] ルート保存エラー:", e);
+          saveError.value = e; // 保存エラー状態設定
+          // MapManagement에서는 루트 저장 오류만 직접 처리
+          throw e; // RouteFormView로 오류를 다시 던져서 RouteFormView가 에러 메시지를 표시하게 함
+      } finally {
+          // RouteFormView の isSaving 状態は RouteFormView 内で直接 false に設定されます。
+      }
+  };
+  
+  
+  // 修正モード開始処理 (RouteListView から 'edit' イベント受信)
+  const handleEditRoute = (route) => {
+    isEditing.value = true;
+    // Pass all route data including new fields to RouteFormView
+    routeToEdit.value = route; // フォームコンポーネントに渡すデータ設定 (ルート情報 및 新しい 필드含む)
+    currentRoutePitches.value = []; // 以前ピッチリストをクリア
+    fetchPitchesForRoute(route.id); // 選択された 루트의 ピッチリスト取得
+    showFormModal.value = true; // 修正時にフォームモーダルを開く
+    console.log(`[MapManagement] ルート修正モード 진입: ${route.id}`, route);
+  };
+  
+  // 修正/追加キャンセル処理 (RouteFormView から 'cancel' イベント受信)
+  const handleCancelEdit = () => {
+    resetForm(); // フォーム 초기화 (モーダルを閉じる処理含む)
+    console.log("[MapManagement] 루트 수정/추가 취소 처리.");
+  };
+  
+  // フォーム状態 초기화와 モーダルを閉じる 함수
+  const resetForm = () => {
+    isEditing.value = false;
+    routeToEdit.value = null;
+    currentRoutePitches.value = []; // ピッチリスト 상태도 초기화
+    showFormModal.value = false;
+    saveError.value = null;
+    pitchError.value = null; // ピッチエラー 상태 초기화
+     console.log("[MapManagement] フォーム 상태 초기화 및 モーダル 닫기.");
+  };
+  
+  // 新規ルート追加フォームモーダルを開く 함수
+  const openAddFormModal = () => {
+      resetForm(); // 既存フォーム状態初期化 (修正モード나 이전 입력값 방지)
+      isEditing.value = false; // 追加モード 設定
+      routeToEdit.value = null; // フォームコンポーネントに初期データなし를 渡す
+      currentRoutePitches.value = []; // 追加モードでは 피치 목록 없음
+      showFormModal.value = true; // 폼 モーダル 열기
+      console.log("[MapManagement] 새 루트 추가 フォーム モーダル 열기.");
+  };
+  
+  
+  // 削除確認モーダル表示 (RouteListView から 'delete' イベント受信)
+  const confirmDeleteRoute = (routeId) => {
+      routeToDeleteId.value = routeId;
+      showConfirmModal.value = true;
+      deleteError.value = null; // 削除エラー 初期化
+      console.log(`[MapManagement] 루트 삭제 확인 요청: ${routeId}`);
+  };
+  
+  // 削除キャンセル (メイン管理)
+  const cancelDelete = () => {
+      routeToDeleteId.value = null;
+      showConfirmModal.value = false;
+       deleteError.value = null; // 削除エラー 初期化
+      console.log("[MapManagement] 루트 삭제 취소.");
+  };
+  
+  // ルート削除実行 (メイン管理)
+  const deleteRoute = async () => {
+    if (!routeToDeleteId.value) return;
+  
+    deleteError.value = null; // 削除エラー 初期化
+    const routeId = routeToDeleteId.value;
+  
+    try {
+       // 1. ルート画像の削除
+       const routeToDeleteDocSnapshot = await getDoc(doc(db, 'routes', routeId));
+       const routeToDelete = routeToDeleteDocSnapshot.exists() ? routeToDeleteDocSnapshot.data() : null;
+  
+       if (routeToDelete && routeToDelete.imageUrl) {
+           console.log(`[MapManagement] ルート 이미지 삭제 시도: ${routeToDelete.imageUrl}`);
+           await deleteFileFromStorage(routeToDelete.imageUrl);
+       }
+  
+       // 2. そのルートのすべてのピッチとピッチ画像の削除
+       console.log(`[MapManagement] 라우트 ${routeId}의 모든 피치 삭제 시작.`);
+       const pitchesCollectionRef = collection(db, 'routes', routeId, 'pitches');
+       const pitchesSnapshot = await getDocs(pitchesCollectionRef);
+  
+       const deletePitchPromises = pitchesSnapshot.docs.map(async (pitchDoc) => {
+           const pitchData = pitchDoc.data();
+           // 피치 이미지 삭제
+           if (pitchData.imagePath) {
+               console.log(`[MapManagement] ピッチ 이미지 삭제 시도: ${pitchData.imagePath}`);
+               await deleteFileFromStorage(pitchData.imagePath);
+           }
+           // ピッチ 문서 삭제
+           console.log(`[MapManagement] ピッチ 문서 삭제 시도: ${pitchDoc.id}`);
+           return deleteDoc(doc(db, 'routes', routeId, 'pitches', pitchDoc.id));
+       });
+  
+       await Promise.all(deletePitchPromises); // 모든 ピッチ 삭제 완료 기다림
+       console.log(`[MapManagement] 라우트 ${routeId}의 모든 피치 삭제 완료.`);
+  
+  
+      // 3. ルート 문서 삭제
+      const routeRef = doc(db, 'routes', routeId);
+      await deleteDoc(routeRef);
+  
+      console.log(`[MapManagement] ルート 문서 삭제 완료: ${routeId}`);
+      alert('루트가 성공적으로 삭제되었습니다.');
+  
+      // リストから削除されたルート 제거 및 モーダル 닫기
+      routes.value = routes.value.filter(route => route.id !== routeId);
+      cancelDelete(); // モーダル 닫기
+       // 削除されたルート가 현재 수정 중인 루트였다면、フォーム 초기화 및 モーダル 닫기
+       if (routeToEdit.value?.id === routeId) {
+           resetForm(); // フォーム 초기화 (모달 닫기 포함)
+       }
+  
+    } catch (e) {
+      console.error(`[MapManagement] ルート削除エラー (${routeId}):`, e);
+      deleteError.value = e; // 削除エラー 状態設定
+      alert(`루트 삭제 중 오류가 발생했습니다: ${e.message}`);
+       cancelDelete(); // エラー発生時 モーダル 닫기
+    } finally {
+      // ローディング 상태 관리
+    }
+  };
+  
+  // 피치 추가 이벤트 핸들러 (MapManagement에서 구현) - 완료 후 폼 닫기 호출
+  const handleAddPitch = async ({ routeId, pitchData }) => {
+      console.log(`[MapManagement] 'add-pitch' 이벤트 수신. 라우트 ID: ${routeId}, 피치 데이터:`, pitchData);
+      if (!routeId) {
+           console.error("[MapManagement] 피치 추가 오류: 라우트 ID가 없습니다.");
+           const error = new Error("피치를 추가할 라우트 정보가 없습니다.");
+           pitchError.value = error;
+           throw error; // RouteFormView로 오류 전달
+      }
+       pitchError.value = null; // 피치 오류 초기화
+  
+      try {
+           // 1. 피치 이미지 파일이 있다면 Storage에 업로드
+           let pitchImageUrl = null;
+  
+           // 피치 문서 먼저 추가 (이미지 URL 없이) -> ID 확보 -> 이미지 업로드 -> 문서 업데이트
+           const pitchDocData = { ...pitchData };
+           delete pitchDocData.selectedPitchImageFile; // 파일 객체는 Firestore에 저장하지 않음
+           delete pitchDocData.removeExistingImage; // 이 플래그도 저장하지 않음
+  
+           const pitchesCollectionRef = collection(db, 'routes', routeId, 'pitches');
+           const newPitchRef = await addDoc(pitchesCollectionRef, {
+               ...pitchDocData,
+               timestamp: serverTimestamp(), // 피치 등록 시간
+               imagePath: '', // 일단 빈 문자열로 추가
+           });
+           const newPitchId = newPitchRef.id;
+           console.log(`[MapManagement] 피치 문서 생성 완료, ID: ${newPitchId}`);
+  
+           // ✅✅✅ Optional: Save the Document ID into an 'id' field within the document data ✅✅✅
+           // Note: This is generally redundant as doc.id is always available when fetching.
+           // If you choose to do this, ensure your fetch logic correctly prioritizes doc.id over this field.
+           // Based on user's previous data, this field might already exist. We are now setting it to the correct ID.
+           await updateDoc(newPitchRef, { id: newPitchId });
+           console.log(`[MapManagement] 피치 문서 ${newPitchId}에 자체 id 필드 저장 완료.`);
+           // ✅✅✅ End Optional Save ✅✅✅
+  
+  
+           // 이미지 파일이 있다면, 확보한 피치 ID를 사용하여 최종 경로에 이미지 업로드
+           if (pitchData.selectedPitchImageFile) {
+               console.log(`[MapManagement] 피치 이미지 업로드 시작 (루트 ID: ${routeId}, 피치 ID: ${newPitchId}).`);
+               // 피치 이미지 경로: routes/${routeId}/pitches/${newPitchId}/image.png 형태
+              const uploadedUrl = await uploadImage(pitchData.selectedPitchImageFile, `routes/${routeId}/pitches/${newPitchId}`);
+              pitchImageUrl = uploadedUrl; // 업로드된 이미지 URL 저장
+  
+              // 생성된 피치 문서에 이미지 URL 업데이트 (id 필드도 다시 업데이트 가능, 하지만 redundant)
+              await updateDoc(doc(db, 'routes', routeId, 'pitches', newPitchId), {
+                  imagePath: pitchImageUrl,
+                  // id: newPitchId // This line would be redundant if already updated above
+              });
+              console.log(`[MapManagement] 피치 문서 ${newPitchId}에 이미지 URL 업데이트 완료.`);
+           }
+  
+  
+          // 피치 목록 새로고침 (MapManagement의 상태 업데이트)
+          await fetchPitchesForRoute(routeId); // 목록 새로고침 완료까지 기다림
+          alert('피치가 성공적으로 추가되었습니다.');
+  
+           // 피치 추가 완료 후 RouteFormView의 피치 폼 닫기
+           if(routeFormRef.value && routeFormRef.value.cancelPitchForm){
+               routeFormRef.value.cancelPitchForm();
+               console.log("[MapManagement] RouteFormView의 피치 폼 닫기 호출됨.");
+           }
+  
+  
+      } catch (e) {
+          console.error("[MapManagement] 피치 추가 중 오류 발생:", e);
+          const error = new Error(`피치 추가 중 오류가 발생했습니다: ${e.message}`);
+          pitchError.value = error;
+          throw error; // RouteFormView로 오류 전달
+      }
+  };
+  
+  // 피치 수정 이벤트 핸들러 (MapManagement에서 구현) - 완료 후 폼 닫기 호출
+  const handleEditPitch = async ({ routeId, pitchData }) => {
+      console.log(`[MapManagement] 'edit-pitch' 이벤트 수신. 라우트 ID: ${routeId}, 피치 데이터:`, pitchData);
+       if (!routeId || !pitchData?.id) {
+           console.error("[MapManagement] 피치 수정 오류: 라우트 ID 또는 피치 ID가 없습니다.");
+           const error = new Error("피치를 수정할 라우트 또는 피치 정보가 없습니다.");
+           pitchError.value = error;
+           throw error; // RouteFormView로 오류 전달
+       }
+       pitchError.value = null;
+  
+      const pitchId = pitchData.id;
+      const pitchDocRef = doc(db, 'routes', routeId, 'pitches', pitchId);
+  
+      try {
+          // 기존 피치 문서 가져와서 기존 이미지 URL 확인
+          const pitchDocSnapshot = await getDoc(pitchDocRef);
+          const oldPitchData = pitchDocSnapshot.exists() ? pitchDocSnapshot.data() : null;
+          const oldPitchImageUrl = oldPitchData?.imagePath || null;
+          console.log(`[MapManagement] 수정할 피치 기존 이미지 URL: ${oldPitchImageUrl}`);
+  
+          let pitchImageUrlToSave = oldPitchImageUrl; // 기본적으로 기존 URL 유지
+  
+          // 이미지 처리 (새 이미지 업로드 또는 기존 이미지 제거)
+          if (pitchData.selectedPitchImageFile) {
+              // 새 이미지 파일이 선택됨
+              console.log(`[MapManagement] 피치 ${pitchId} 새 이미지 파일 감지.`);
+              // 기존 이미지가 Storage에 있다면 삭제
+              if (oldPitchImageUrl) {
+                   console.log(`[MapManagement] 피치 ${pitchId} 기존 이미지 삭제 시도.`);
+                   await deleteFileFromStorage(oldPitchImageUrl);
+              }
+              // 새 이미지 업로드 (루트 ID와 피치 ID를 경로에 포함)
+               console.log(`[MapManagement] 피치 ${pitchId} 새 이미지 업로드 시작.`);
+              pitchImageUrlToSave = await uploadImage(pitchData.selectedPitchImageFile, `routes/${routeId}/pitches/${pitchId}`);
+               console.log(`[MapManagement] 피치 ${pitchId} 새 이미지 업로드 완료: ${pitchImageUrlToSave}`);
+  
+          } else if (pitchData.removeExistingImage) {
+              // 기존 이미지 제거 요청됨
+               console.log(`[MapManagement] 피치 ${pitchId} 기존 이미지 제거 요청 감지.`);
+              if (oldPitchImageUrl) {
+                   console.log(`[MapManagement] 피치 ${pitchId} 기존 이미지 삭제 시도.`);
+                   await deleteFileFromStorage(oldPitchImageUrl);
+              }
+              pitchImageUrlToSave = null; // 문서에서 이미지 URL 필드 제거
+  
+          } else {
+               // 이미지 변경 없음 (selectedPitchImageFile 없고 removeExistingImage도 false)
+               console.log(`[MapManagement] 피치 ${pitchId} 이미지 변경 없음. 기존 URL 유지.`);
+               // pitchImageUrlToSave는 oldPitchImageUrl로 이미 초기화되어 있습니다.
+          }
+  
+  
+          // Firestore 피치 문서 업데이트
+          const updatedPitchData = { ...pitchData };
+          delete updatedPitchData.selectedPitchImageFile; // 파일 객체는 Firestore에 저장하지 않음
+          delete updatedPitchData.removeExistingImage; // 이 플래그도 저장하지 않음
+          delete updatedPitchData.id; // 문서 업데이트 시 ID 필드는 포함하지 않음 (routeFormView에서 이미 id를 받고 있음)
+  
+          await updateDoc(pitchDocRef, {
+              ...updatedPitchData,
+              imagePath: pitchImageUrlToSave, // 처리된 이미지 URL
+              // timestamp는 추가 시에만 설정하고 수정 시에는 변경하지 않는 것이 일반적
+              // timestamp: serverTimestamp(),
+              id: pitchId, // ✅✅✅ Optional: Update the 'id' field within the document data on edit as well ✅✅✅
+                         // This is redundant but matches the add logic if chosen.
+          });
+  
+          console.log(`[MapManagement] 피치 ${pitchId} 수정 완료.`);
+          alert('피치가 성공적으로 수정되었습니다.');
+  
+          // 피치 목록 새로고침 (MapManagement의 상태 업데이트)
+          await fetchPitchesForRoute(routeId); // 목록 새로고침 완료까지 기다림
+  
+           // 피치 수정 완료 후 RouteFormView의 피치 폼 닫기
+           if(routeFormRef.value && routeFormRef.value.cancelPitchForm){
+               routeFormRef.value.cancelPitchForm();
+               console.log("[MapManagement] RouteFormView의 피치 폼 닫기 호출됨.");
+           }
+  
+  
+      } catch (e) {
+          console.error(`[MapManagement] 피치 수정 중 오류 발생 (${pitchId}):`, e);
+          const error = new Error(`피치 수정 중 오류가 발생했습니다: ${e.message}`);
+          pitchError.value = error;
+          throw e; // RouteFormView로 오류 전달
+      }
+  };
+  
+  // 피치 삭제 이벤트 핸들러 (MapManagement에서 구현)
+  const handleDeletePitch = async ({ routeId, pitchId }) => {
+      console.log(`[MapManagement] 'delete-pitch' 이벤트 수신. 라우트 ID: ${routeId}, 피치 ID: ${pitchId}`);
+      if (!routeId || !pitchId) {
+          console.error("[MapManagement] 피치 삭제 오류: 라우트 ID 또는 피치 ID가 없습니다.");
+          pitchError.value = new Error("삭제할 라우트 또는 피치 정보가 없습니다.");
+          return; // 이 경우는 RouteFormView에서 오류 표시하지 않도록 throw 하지 않음
+      }
+       pitchError.value = null;
+  
+      // 사용자에게 삭제 확인을 요청 (confirm 모달 사용)
+      const confirmed = confirm('이 피치를 정말 삭제하시겠습니까?'); // 브라우저 기본 confirm 사용
+      if (!confirmed) {
+          console.log("[MapManagement] 피치 삭제 취소됨.");
+          return; // 사용자가 취소한 경우
+      }
+  
+      const pitchDocRef = doc(db, 'routes', routeId, 'pitches', pitchId);
+  
+      try {
+          // 1. 피치 이미지 파일이 있다면 Storage에서 삭제
+          const pitchDocSnapshot = await getDoc(pitchDocRef);
+          if (pitchDocSnapshot.exists()) {
+             const pitchData = pitchDocSnapshot.data();
+             if (pitchData.imagePath) {
+                 console.log(`[MapManagement] 피치 이미지 삭제 시도: ${pitchData.imagePath}`);
+                 await deleteFileFromStorage(pitchData.imagePath);
+             }
+             // 2. 피치 문서 삭제
+             await deleteDoc(pitchDocRef);
+              console.log(`[MapManagement] 피치 문서 삭제 완료: ${pitchId}`);
+              alert('피치가 성공적으로 삭제되었습니다.');
+  
+          } else {
+             console.warn(`[MapManagement] 삭제하려는 피치 문서 (${pitchId})를 찾을 수 없습니다.`);
+              alert('삭제하려는 피치를 찾을 수 없습니다.');
+          }
+  
+          // 피치 목록 새로고침 (MapManagement의 상태 업데이트)
+          fetchPitchesForRoute(routeId);
+  
+      } catch (e) {
+          console.error(`[MapManagement] 피치 삭제 중 오류 발생 (${pitchId}):`, e);
+          pitchError.value = e;
+          alert(`피치 삭제 중 오류가 발생했습니다: ${e.message}`);
+      }
+  };
+  
+  
+  // 컴포넌트 마운트 시 루트 리스트를 가져옵니다.
+  onMounted(() => {
+    console.log("[MapManagement] コンポーネントがマウントされました。ルートリスト의 取得を開始합니다。");
+    fetchRoutes();
+  });
+  
+  // getDoc インポート確認 (既に一番上でインポート済み)
+  
+  </script>
+  
+  <style scoped>
+  /* 기존 스타일 유지 */
+.container{
     padding: 0;
-    margin: 0;
 }
-
-.route-item, .pitch-item {
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 15px;
-    margin-bottom: 15px;
-    background-color: #f9f9f9;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.route-info p, .pitch-info p {
-    margin: 0 0 5px 0;
+  h1 {
+    text-align: center;
     color: #333;
-    font-size: 0.95em;
-}
-.route-info p:last-child, .pitch-info p:last-child {
-    margin-bottom: 0;
-}
-.route-info strong, .pitch-info strong {
-    color: #555;
-    margin-right: 5px;
-}
-
-.route-actions, .pitch-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.action-button {
-    padding: 8px 15px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9em;
-    transition: background-color 0.2s ease;
-    background-color: #007bff;
-    color: white;
-}
-.action-button:hover {
-    background-color: #0056b3;
-}
-
-.action-button.delete {
-    background-color: #dc3545;
-}
-.action-button.delete:hover {
-    background-color: #c82333;
-}
-/* 작은 삭제 버튼 스타일 */
-.action-button.delete.small {
-    padding: 4px 8px; /* 크기 줄임 */
-    font-size: 0.8em; /* 글자 크기 줄임 */
-    align-self: flex-end; /* 오른쪽 정렬 */
-}
-
-
-/* -------------- 폼 스타일 (루트/피치 공통) -------------- */
-.form-group {
-    margin-bottom: 15px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-    color: #555;
-}
-
-.form-group input[type="text"],
-.form-group input[type="number"],
-.form-group textarea {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-sizing: border-box;
-    font-size: 1em;
-}
-
-.form-group textarea {
-    resize: vertical;
-    min-height: 80px;
-}
-
-.form-actions {
-    margin-top: 20px;
-    text-align: right;
-}
-
-.form-actions .action-button {
-    margin-left: 10px;
-}
-
-/* -------------- 새 루트 폼의 피치 정보 입력 섹션 스타일 -------------- */
-.new-pitches-section {
-    margin-top: 30px;
-    padding-top: 20px;
-    border-top: 1px dashed #ccc; /* 점선 구분선 */
-}
-
-.new-pitches-section h3 {
-    font-size: 1.4em;
-    margin-bottom: 15px;
-    color: #333;
-}
-
-.section-description {
-    font-size: 0.9em;
-    color: #666;
-    margin-bottom: 15px;
-}
-
-.add-pitch-button {
-    display: inline-block; /* 블록 대신 인라인 블록 */
-    margin-bottom: 20px;
-    padding: 8px 15px;
-    background-color: #17a2b8; /* Info 색상 */
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.9em;
-    transition: background-color 0.2s ease;
-}
-.add-pitch-button:hover {
-    background-color: #138496;
-}
-
-.pitch-forms-list {
-    margin-top: 15px;
-}
-
-.pitch-form-item {
-    border: 1px solid #b3e5fc; /* 연한 파랑 테두리 */
-    border-radius: 5px;
-    padding: 15px;
-    margin-bottom: 15px;
-    background-color: #e1f5fe; /* 연한 파랑 배경 */
-    position: relative; /* 삭제 버튼 위치 조정을 위해 */
-}
-
-.pitch-form-item h4 {
-    margin-top: 0;
-    margin-bottom: 15px;
-    color: #0277bd; /* 진한 파랑 */
-    font-size: 1.1em;
-    border-bottom: 1px solid #b3e5fc;
-    padding-bottom: 5px;
-}
-
-.pitch-form-item .action-button.delete {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-}
-
-/* ✅✅✅ 로딩 오버레이 스타일 ✅✅✅ */
-.loading-overlay {
-    position: fixed; /* 전체 화면 고정 */
+    margin-bottom: 20px; /* 버튼과의 간격 */
+  }
+  
+  .add-route-button {
+      display: block;
+      margin: 0 auto 20px;
+      padding: 10px 20px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1em;
+      transition: background-color 0.3s ease;
+  }
+  .add-route-button:hover {
+      background-color: #218838;
+  }
+  
+  
+  /* モーダルオーバーレイのスタイル */
+  .modal-overlay {
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5); /* 반투명 검정 배경 */
+    background-color: rgba(0, 0, 0, 0.5);
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 1000; /* 다른 요소들 위에 표시 */
-    color: white;
-    font-size: 1.2em;
-}
-
-.loading-content {
-    text-align: center;
-    background: #333;
-    padding: 20px 30px;
+    z-index: 1000;
+  }
+  
+  /* モーダルコンテンツエリアのスタイル */
+  .modal-content {
+    background-color: white;
+    padding: 30px;
     border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.spinner {
-  border: 4px solid #f3f3f3; /* Light grey */
-  border-top: 4px solid #3498db; /* Blue */
-  border-radius: 50%;
-  width: 30px;
-  height: 30px;
-  animation: spin 1s linear infinite;
-  margin: 10px auto; /* 로딩 메시지 아래 중앙에 위치 */
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-
-/* 로딩/오류 메시지 스타일 */
-.loading-message, .error-message {
     text-align: center;
-    margin-top: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+     max-width: 90%;
+     max-height: 90vh;
+     overflow-y: auto;
+     box-sizing: border-box;
+  }
+  
+  /* フォームモーダルコンテンツエリアの追加スタイル */
+  .modal-content.form-modal-content {
+      text-align: left;
+      padding: 20px;
+      width: 700px; /* フォームモーダルの適切な幅 */
+      max-width: 90%;
+  }
+  
+  /* 既存削除モーダル内の要素スタイル */
+  .modal-content p {
+    margin-bottom: 20px;
+    font-size: 1.1em;
+  }
+  
+  .modal-content button {
+    padding: 10px 20px;
+    margin: 0 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+  }
+  
+  .modal-content button:first-child {
+    background-color: #dc3545;
+    color: white;
+  }
+  
+  .modal-content button:last-child {
+    background-color: #6c757d;
+    color: white;
+  }
+  
+  
+  .loading-message, .error-message {
+    text-align: center;
+    margin-top: 15px;
     font-style: italic;
-}
-.error-message {
+  }
+  .error-message {
     color: red;
-}
-</style>
+  }
+  
+  
+  </style>

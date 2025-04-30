@@ -1,15 +1,15 @@
 <template>
-  <div class="container">
+  <div class="container" v-if="routeDetails">
     <div class="header">
       <button class="back-button" @click="goBack">←</button>
-      <h1>{{ routeDetails.name }}</h1>
+      <h1>{{ routeDetails.name || '루트 이름' }}</h1>
       <div class="header__right"></div>
     </div>
 
     <div class="route-image-section">
       <img
-        v-if="routeDetails && routeDetails.mainImageUrl"
-        :src="routeDetails.mainImageUrl"
+        v-if="routeDetails && routeDetails.imageUrl"
+        :src="routeDetails.imageUrl"
         :alt="
           routeDetails.name
             ? `${routeDetails.name} 다이어그램`
@@ -24,31 +24,19 @@
       <div class="image-actions">
         <button
           class="view-pitch-button"
-          @click="goToPitchDetail(pitches[0]?.id)"
-          :disabled="pitches.length === 0"
-        >
+          @click="goToPitchDetail(pitches[0]?.id)" :disabled="pitches.length === 0 || pitches[0]?.id == null || pitches[0]?.id === ''" >
           <i class="fas fa-link"></i>
-          피치보기
+          피치보기 (첫 피치)
         </button>
       </div>
     </div>
 
     <div class="route-info-section">
-      <!-- <p>라우트 ID: {{ id }}</p> -->
-<!-- 
-      <h1 class="route-name">
-        {{ routeDetails.name || "루트 이름 불러오는 중..." }}
-      </h1> -->
-
       <ul class="route-details-list">
-        <!-- <li>
-          <i class="fas fa-location-dot"></i>
-          <span>이름 - {{ routeDetails.name || "정보 없음" }}</span>
-        </li> -->
         <li>
           <i class="fas fa-file-lines"></i>
           <span>등반개요</span>
-          <strong>{{ routeDetails.overview || "정보 없음" }}</strong>
+          <strong>{{ routeDetails.climbingOverview || "정보 없음" }}</strong>
         </li>
         <li>
           <i class="fas fa-sliders-h"></i>
@@ -58,48 +46,55 @@
         <li>
           <i class="fas fa-gears"></i>
           <span>등반장비</span>
-          <strong>{{ routeDetails.gear || "정보 없음" }}</strong>
+          <strong>{{ routeDetails.climbingGear || "정보 없음" }}</strong>
         </li>
         <li>
           <i class="fas fa-chart-simple"></i>
           <span>평균난이도</span>
-          <strong>{{ routeDetails.difficulty || "정보 없음" }}</strong>
+          <strong>{{ routeDetails.averageDifficulty || "정보 없음" }}</strong>
         </li>
         <li>
           <i class="fas fa-book"></i>
           <span>개척자</span>
-          <strong>{{ routeDetails.firstAscentParty || "정보 없음" }}</strong>
+          <strong>{{ routeDetails.developer || "정보 없음" }}</strong>
         </li>
+         <li>
+            <i class="fas fa-calendar-alt"></i>
+            <span>등록일</span>
+            <strong>{{ formatDate(routeDetails.timestamp) }}</strong>
+         </li>
       </ul>
     </div>
 
     <div class="pitch-list-section" v-if="pitches.length > 0">
-      <!-- <h3>피치 선택</h3> -->
+      <h3>피치 선택</h3>
       <div class="pitch-buttons">
         <button
           v-for="pitch in pitches"
-          :key="pitch.id"
-          @click="goToPitchDetail(pitch.id)"
-          class="pitch-button"
-        >
+          :key="pitch.id" @click="goToPitchDetail(pitch.id)" class="pitch-button"
+           :disabled="pitch.id == null || pitch.id === ''" >
           {{ pitch.name || `${pitch.number}피치` }}
         </button>
       </div>
     </div>
-    <div v-else-if="!loading">
-      <p>해당 라우트의 피치 정보가 없습니다.</p>
-    </div>
+     <div v-else-if="!loading">
+       <p>해당 라우트의 피치 정보가 없습니다.</p>
+     </div>
 
     <div v-if="loading" class="loading-message">정보 로딩 중...</div>
     <div v-if="error" class="error-message">
       데이터 로딩 오류: {{ error.message }}
     </div>
   </div>
+   <div v-else-if="!loading && !routeDetails && !error">
+       <p>해당 루트 정보를 찾을 수 없습니다.</p>
+   </div>
 </template>
-  
-  <script setup>
+
+<script setup>
 import { ref, onMounted } from "vue";
-// ✅✅✅ Firestore 관련 함수 임포트 ✅✅✅
+import { useRoute, useRouter } from "vue-router";
+// Firestore 관련 함수 임포트
 import {
   doc,
   getDoc,
@@ -109,34 +104,43 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "@/firebase";
-import { useRouter } from "vue-router";
+
+
+const router = useRouter();
+const route = useRoute();
+
 
 // eslint-disable-next-line no-undef
 const props = defineProps({
   id: {
-    // 라우트 ID (params에서 props로 받음)
     type: String,
     required: true,
   },
 });
 
-const router = useRouter();
+const routeDetails = ref(null);
+const pitches = ref([]);
+const loading = ref(true);
+const error = ref(null);
 
-const routeDetails = ref({
-  name: null,
-  overview: null,
-  climbingStyle: null,
-  gear: null,
-  difficulty: null,
-  firstAscentParty: null,
-  mainImageUrl: null, // ✅ mainImageUrl 필드 추가
-});
+// Firestore 컬렉션 참조
+const routesCollectionRef = firestoreCollection(db, 'routes');
 
-const pitches = ref([]); // 피치 목록을 저장할 반응형 변수
-const loading = ref(true); // 로딩 상태
-const error = ref(null); // 오류 상태
 
-// ✅✅✅ 라우트 상세 정보를 Firestore에서 가져오는 함수 ✅✅✅
+// 날짜 포맷팅 헬퍼 함수
+const formatDate = (timestamp) => {
+  if (!timestamp) return '정보 없음';
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  const year = date.getFullYear();
+  const month = ('0' + (date.getMonth() + 1)).slice(-2);
+  const day = ('0' + date.getDate()).slice(-2);
+  const hours = ('0' + date.getHours()).slice(-2);
+  const minutes = ('0' + date.getMinutes()).slice(-2);
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
+};
+
+
+// 라우트 상세 정보를 Firestore에서 가져오는 함수
 const fetchRouteDetails = async (routeId) => {
   console.log(
     `[RouteDetailView] 라우트 상세 정보 가져오기 시작 (ID: ${routeId}).`
@@ -150,9 +154,16 @@ const fetchRouteDetails = async (routeId) => {
     if (routeDoc.exists()) {
       const data = routeDoc.data();
       routeDetails.value = {
+        id: routeDoc.id, // Include the document ID
         ...data,
-        // ✅✅✅ Firestore 문서에서 'mainImageUrl' 필드 값을 가져옵니다. ✅✅✅
-        mainImageUrl: data.mainImageUrl || null, // 실제 Firestore 필드명 'mainImageUrl'로 가정
+        imageUrl: data.imageUrl || null,
+         climbingOverview: data.climbingOverview || '',
+         climbingStyle: data.climbingStyle || '',
+         climbingGear: data.climbingGear || '',
+         averageDifficulty: data.averageDifficulty || '',
+         developer: data.developer || '',
+         timestamp: data.timestamp || null,
+         location: data.location || { lat: '정보 없음', lng: '정보 없음' }
       };
       console.log(
         `[RouteDetailView] 라우트 상세 정보 가져옴:`,
@@ -162,15 +173,7 @@ const fetchRouteDetails = async (routeId) => {
       console.warn(
         `[RouteDetailView] 라우트 문서 ${routeId}를 찾을 수 없습니다.`
       );
-      routeDetails.value = {
-        name: "정보 없음",
-        overview: "정보 없음",
-        climbingStyle: "정보 없음",
-        gear: "정보 없음",
-        difficulty: "정보 없음",
-        firstAscentParty: "정보 없음",
-        mainImageUrl: null,
-      }; // 기본값 및 이미지 필드 초기화
+      routeDetails.value = null;
     }
   } catch (e) {
     console.error(
@@ -178,31 +181,20 @@ const fetchRouteDetails = async (routeId) => {
       e
     );
     error.value = e;
-    routeDetails.value = {
-      name: "오류 발생",
-      overview: "오류 발생",
-      climbingStyle: "오류 발생",
-      gear: "오류 발생",
-      difficulty: "오류 발생",
-      firstAscentParty: "오류 발생",
-      mainImageUrl: null,
-    };
+    routeDetails.value = null;
   } finally {
-    // 로딩 완료는 피치 정보까지 모두 가져온 후에 처리하는 것이 좋습니다.
+    // loading state is set to false after fetching pitches
   }
 };
 
-// ✅✅✅ 특정 라우트의 피치 목록을 Firestore에서 가져오는 함수 ✅✅✅
-// 라우트 문서의 서브컬렉션 ('pitches')에서 가져온다고 가정 (실제 경로로 수정)
+
+// ✅✅✅ 특정 라우트의 피치 목록을 Firestore에서 가져오는 함수 - ID 우선 순위 수정 ✅✅✅
 const fetchPitchesForRoute = async (routeId) => {
   console.log(
     `[RouteDetailView] 라우트 "${routeId}"의 피치 목록 가져오기 시작 (Firestore).`
   );
-  // loading.value = true; // 라우트 상세와 함께 로딩 시작했으므로 여기서 다시 할 필요 없음
-  // error.value = null;
   pitches.value = []; // 이전 피치 목록 초기화
 
-  // 'routes/{routeId}/pitches' 경로의 서브컬렉션 참조 (실제 경로로 수정)
   const pitchesCollectionRef = firestoreCollection(
     db,
     "routes",
@@ -210,15 +202,23 @@ const fetchPitchesForRoute = async (routeId) => {
     "pitches"
   );
   try {
-    // 피치 번호(number 필드) 기준으로 오름차순 정렬하여 가져옴 (실제 필드명 확인)
-    const q = firestoreQuery(pitchesCollectionRef, orderBy("number", "asc")); // 'number' 필드명 확인 필요
+    const q = firestoreQuery(pitchesCollectionRef, orderBy("number", "asc"));
     const querySnapshot = await firestoreGetDocs(q);
 
     const pitchesList = [];
     querySnapshot.forEach((doc) => {
+      const pitchData = doc.data();
       pitchesList.push({
-        id: doc.id, // 피치 문서 ID
-        ...doc.data(), // 피치 데이터 (name, number 등 실제 필드명 확인)
+        ...pitchData, // 먼저 문서 데이터를 펼치고,
+        id: doc.id, // ✅ 그 다음에 문서 ID로 'id' 필드를 덮어씁니다. (Turn 299의 수정 내용)
+         // Ensure other relevant fields are included
+         number: pitchData.number || null,
+         name: pitchData.name || '',
+         length: pitchData.length || '',
+         difficulty: pitchData.difficulty || '',
+         climbingStyle: pitchData.climbingStyle || '',
+         bolts: pitchData.bolts || null,
+         imagePath: pitchData.imagePath || '',
       });
     });
     pitches.value = pitchesList; // 가져온 피치 목록 저장
@@ -226,44 +226,77 @@ const fetchPitchesForRoute = async (routeId) => {
       `[RouteDetailView] 라우트 "${routeId}"의 피치 ${pitchesList.length}개 가져옴:`,
       pitchesList
     );
+     console.log("[RouteDetailView] Fetched pitches data (with correct ID):", pitches.value);
+
   } catch (e) {
     console.error(
       `[RouteDetailView] 라우트 "${routeId}"의 피치 목록 가져오기 오류:`,
       e
     );
-    error.value = e; // 오류 상태 저장
+    pitches.value = [];
   } finally {
-    loading.value = false; // 라우트 및 피치 정보 로딩 완료
+    loading.value = false;
   }
 };
 
-// 특정 피치 상세 페이지로 이동하는 함수
-const goToPitchDetail = (pitchId) => {
-  // 피치 ID가 유효한지 확인
-  if (!pitchId) {
-    console.warn("[RouteDetailView] 선택할 피치 ID가 없습니다.");
+
+// 뒤로가기 함수
+const goBack = () => {
+  console.log("[RouteDetailView] 뒤로가기 버튼 클릭.");
+  router.go(-1);
+};
+
+
+// ✅✅✅ 특정 피치 상세 페이지로 이동하는 함수 (다시 ID 사용) ✅✅✅
+const goToPitchDetail = (pitchId) => { // 매개변수 이름을 pitchId로 되돌림
+  const currentRouteId = route.params.id;
+
+  console.log("[RouteDetailView] goToPitchDetail 호출됨.");
+  console.log(`[RouteDetailView] 현재 루트 ID (params): ${currentRouteId}`);
+  console.log(`[RouteDetailView] 클릭된 피치 ID:`, pitchId); // ID 로깅
+
+
+  // 피치 ID가 유효한지 확인 (null, undefined, 빈 문자열 체크)
+  if (pitchId == null || pitchId === '') {
+    console.warn("[RouteDetailView] 선택할 피치 ID가 없습니다. 전달받은 값:", pitchId);
+    alert("피치 정보를 찾을 수 없습니다.");
     return;
   }
-  console.log(`[RouteDetailView] 피치 선택: ${pitchId}. 상세 페이지로 이동.`);
-  // 'pitchDetail' 라우트 이름과 routeId, pitchId 파라미터를 가지고 이동
-  // props.id를 사용하여 현재 라우트 ID 전달
+  // 현재 루트 ID가 유효한지 확인 (필요하다면)
+  if (!currentRouteId) {
+       console.error("[RouteDetailView] 현재 라우트 ID를 찾을 수 없어 피치 상세로 이동할 수 없습니다. (Params ID:", route.params.id, ")");
+       alert("루트 정보를 찾을 수 없어 피치 상세 페이지로 이동할 수 없습니다.");
+       return;
+  }
+
+
+  console.log(`[RouteDetailView] 피치 선택: 피치 ID ${pitchId}. 상세 페이지로 이동.`);
+
+  // TODO: router/index.js에 'pitchDetail' 라우트를 정의하고, PitchDetailView.vue 컴포넌트 생성 필요
+  // 'pitchDetail' 라우트는 '/admin/routes/:routeId/pitches/:pitchId' 형식일 가능성이 높습니다. (다시 ID 사용)
   router.push({
-    name: "pitchDetail", // router/index.js에서 정의한 피치 상세 라우트 이름
+    name: "pitchDetail", // router/index.js에서 정의할 피치 상세 라우트 이름
     params: {
-      routeId: props.id, // 현재 라우트의 ID (props에서 가져옴)
-      pitchId: pitchId, // 선택된 피치의 ID
+      routeId: currentRouteId, // 현재 라우트의 ID
+      pitchId: pitchId, // ✅ 피치 번호 대신 피치 ID 전달 (문서 ID)
     },
+  }).catch(err => {
+    console.error("[RouteDetailView] 라우트 이동 오류:", err);
+    alert(`피치 상세 페이지로 이동 중 오류 발생: ${err.message}\n'pitchDetail' 라우트 및 라우트 파라미터(routeId, pitchId)가 올바르게 설정되었는지 확인하세요.`);
   });
 };
+
 
 // 컴포넌트 마운트 시 라우트 상세 정보와 피치 목록을 가져옵니다.
 onMounted(() => {
   const currentRouteId = props.id;
+
   if (currentRouteId) {
     fetchRouteDetails(currentRouteId);
     fetchPitchesForRoute(currentRouteId);
   } else {
-    console.error("[RouteDetailView] 라우트 ID가 제공되지 않았습니다.");
+    console.error("[RouteDetailView] 라우트 ID가 props로 제공되지 않았습니다.");
+    error.value = new Error("표시할 루트 정보를 찾을 수 없습니다 (ID 누락).");
     loading.value = false;
   }
 });

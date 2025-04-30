@@ -1,11 +1,13 @@
+
+
 <template>
-    <div class="container">
-      <div class="header">
-     <button class="back-button" @click="goBack">←</button>
-     <h1>클라이밍 피치</h1>
-     <div class="header__right"></div>
+  <div class="container">
+    <div class="header">
+      <button class="back-button" @click="goBack">←</button>
+      <h1>{{ currentPitchDetails ? currentPitchDetails.name || `${currentPitchDetails.number}피치` : '클라이밍 피치' }}</h1>
+      <div class="header__right"></div>
     </div>
-  
+
     <div class="pitch-list-section" v-if="allPitches.length > 0">
       <div class="pitch-buttons">
         <button
@@ -14,73 +16,79 @@
           @click="selectPitch(pitch.id)"
           :class="{ active: pitch.id === selectedPitchId }" class="pitch-button"
         >
-          {{ pitch.name || `${pitch.number}피치` }} </button>
+          {{ pitch.name || `${pitch.number}피치` }}
+        </button>
       </div>
     </div>
     <div v-else-if="!loading && allPitches.length === 0">
       <p>해당 라우트의 피치 목록 정보가 없습니다.</p>
     </div>
-  
-        <div class="pitch-diagram-section">
-          <img
-              v-if="currentPitchDetails && currentPitchDetails.imagePath"
-       :src="currentPitchDetails.imagePath"
-       :alt="`Pitch ${currentPitchDetails.number} Diagram`"
-       class="route-diagram-img">
-          <div v-else-if="!loading">
-              <p>피치 다이어그램 이미지를 불러올 수 없습니다.</p>
-          </div>
+
+    <div class="pitch-diagram-section">
+      <img
+        v-if="currentPitchDetails && currentPitchDetails.imagePath"
+        :src="currentPitchDetails.imagePath"
+        :alt="`Pitch ${currentPitchDetails.number} Diagram`"
+        class="route-diagram-img"
+      >
+      <div v-else-if="!loading && !currentPitchDetails?.imagePath">
+         <p>피치 다이어그램 이미지를 불러올 수 없습니다.</p>
+      </div>
     </div>
-  
-      <div class="pitch-info-section" v-if="currentPitchDetails">
+
+    <div class="pitch-info-section" v-if="currentPitchDetails">
       <div class="info-row">
         <div class="info-item">
-          <i class="fas fa-location-dot"></i>
-          <span>이름 <strong>{{ currentPitchDetails.name || '정보 없음' }}</strong></span>
+          <i class="fas fa-hashtag"></i> <span>번호 <strong>{{ currentPitchDetails.number || '정보 없음' }}</strong></span>
         </div>
+        <div class="info-item">
+           <i class="fas fa-signature"></i> <span>이름 <strong>{{ currentPitchDetails.name || '정보 없음' }}</strong></span>
+        </div>
+      </div>
+      <div class="info-row">
         <div class="info-item">
           <i class="fas fa-ruler-vertical"></i>
           <span>길이 <strong>{{ currentPitchDetails.length || '정보 없음' }}</strong></span>
         </div>
-      </div>
-      <div class="info-row">
         <div class="info-item">
           <i class="fas fa-chart-simple"></i>
           <span>난이도 <strong>{{ currentPitchDetails.difficulty || '정보 없음' }}</strong></span>
         </div>
-        <div class="info-item">
-          <i class="fas fa-sliders-h"></i>
-          <span>형태 <strong>{{ currentPitchDetails.climbingStyle || '정보 없음' }}</strong></span>
-        </div>
       </div>
+      <div class="info-row">
+         <div class="info-item">
+           <i class="fas fa-sliders-h"></i>
+           <span>형태 <strong>{{ currentPitchDetails.climbingStyle || '정보 없음' }}</strong></span>
+         </div>
+          <div class="info-item">
+            <i class="fas fa-bolt"></i> <span>볼트 <strong>{{ currentPitchDetails.bolts === undefined || currentPitchDetails.bolts === null ? '정보 없음' : currentPitchDetails.bolts }}</strong> 개</span>
+          </div>
+       </div>
     </div>
-    <div class="tools-row">
-      <div class="info-item full-width">
-        <span>볼트 12개, 로프 1개</span>
-      </div>
-    </div>
-    
-  
-    <div v-if="loading" class="loading-message">피치 정보 로딩 중...</div>
+     <div v-else-if="!loading && !currentPitchDetails">
+       <p>선택된 피치 상세 정보를 불러올 수 없습니다.</p>
+     </div>
+
+     <div v-if="loading" class="loading-message">피치 정보 로딩 중...</div>
     <div v-if="error" class="error-message">피치 정보를 불러오는 데 오류가 발생했습니다: {{ error.message }}</div>
-  
-   </div>
-  </template>
-  
-  <script setup>
-  /* eslint-disable no-undef */
-import { ref, onMounted, computed } from 'vue';
+
+  </div>
+</template>
+
+<script setup>
+/* eslint-disable no-undef */ // ESLint 'defineProps' 오류 비활성화
+
+import { ref, onMounted, computed, nextTick } from 'vue'; // nextTick 임포트
 // Firestore 관련 함수들
-import { collection, query, getDocs, orderBy } from 'firebase/firestore'; // ✅ 실제 Firestore 함수 임포트
-import { db } from '@/firebase'; // Firebase db 인스턴스
+import { collection, query, getDocs, orderBy } from 'firebase/firestore';
+import { db } from '@/firebase';
 
 // 라우터 관련 훅
-import { useRouter } from 'vue-router';
-import { useRoute } from 'vue-router'; // ✅ useRoute 임포트 (URL 파라미터 접근에 사용)
+import { useRouter, useRoute } from 'vue-router';
 
 
 const router = useRouter(); // 라우터 인스턴스 가져옴
-const route = useRoute(); // ✅ 현재 라우트 정보 가져옴
+const route = useRoute(); // 현재 라우트 정보 가져옴
 
 
 // props 정의 (라우트 설정에서 컴포넌트로 전달)
@@ -91,7 +99,7 @@ const props = defineProps({
   },
   pitchId: {
     type: String,
-    required: true
+    required: true // 라우터에서 pitchId 파라미터를 받을 것으로 예상
   }
 });
 
@@ -109,7 +117,8 @@ const currentPitchDetails = computed(() => {
     return foundPitch;
 });
 
-// ✅✅✅ Firestore에서 특정 라우트의 모든 피치 목록을 가져오는 함수 ✅✅✅
+
+// Firestore에서 특정 라우트의 모든 피치 목록을 가져오는 함수
 const fetchAllPitchesForRoute = async (routeId) => {
   console.log(`[PitchDetailView] 라우트 "${routeId}"의 모든 피치 목록 Firestore에서 가져오기 시작.`);
   loading.value = true;
@@ -125,33 +134,73 @@ const fetchAllPitchesForRoute = async (routeId) => {
 
     const pitchesList = [];
     querySnapshot.forEach(doc => {
+      // 문서 ID를 피치 ID로 사용하고, 나머지 필드를 포함
       pitchesList.push({
         id: doc.id, // 문서 ID를 피치 ID로 사용
-        ...doc.data() // Firestore 문서의 나머지 필드 (name, length, difficulty, imagePath 등)
+        ...doc.data() // Firestore 문서의 나머지 필드 (name, length, difficulty, imagePath, bolts 등)
       });
     });
     allPitches.value = pitchesList;
     console.log(`[PitchDetailView] 라우트 "${routeId}"의 모든 피치 ${pitchesList.length}개 가져옴:`, allPitches.value);
 
-    // ✅✅✅ 초기 선택할 피치 설정 로직 ✅✅✅
-    // 1. URL 파라미터로 받은 pitchId에 해당하는 피치가 있는지 찾습니다.
-    // 2. 있다면 그 피치를 선택합니다.
-    // 3. 없다면 (또는 피치가 하나도 없다면) 첫 번째 피치를 선택하고 URL을 업데이트합니다.
+    // 초기 선택할 피치 설정 로직
     const initialPitchIdFromUrl = props.pitchId;
-    if (allPitches.value.find(p => p.id === initialPitchIdFromUrl)) {
-      selectedPitchId.value = initialPitchIdFromUrl;
-      console.log(`[PitchDetailView] URL 초기 피치 ID "${initialPitchIdFromUrl}"에 해당하는 피치를 선택합니다.`);
+    let pitchIdToSelect = null;
+    let needsUrlUpdate = false;
+
+
+    // 1. URL의 초기 pitchId가 유효한지 확인
+    const foundInitialPitch = allPitches.value.find(p => p.id === initialPitchIdFromUrl);
+
+    if (foundInitialPitch) {
+        pitchIdToSelect = initialPitchIdFromUrl;
+        console.log(`[PitchDetailView] URL 초기 피치 ID "${initialPitchIdFromUrl}"에 해당하는 피치를 찾았습니다.`);
     } else if (allPitches.value.length > 0) {
-      // URL의 pitchId가 유효하지 않거나 없는 경우 첫 번째 피치를 선택
-      selectedPitchId.value = allPitches.value[0].id;
-      console.warn(`[PitchDetailView] URL 초기 피치 ID "${initialPitchIdFromUrl}"를 찾을 수 없어 첫 번째 피치 "${selectedPitchId.value}"를 선택합니다. URL을 업데이트합니다.`);
-      // URL의 pitchId를 첫 번째 피치의 ID로 교체 (페이지 새로고침 없이)
-      router.replace({ params: { routeId: props.routeId, pitchId: selectedPitchId.value } });
+        // 2. URL의 pitchId가 유효하지 않거나 없는 경우, 첫 번째 피치를 선택
+        // ✅ 첫 번째 피치의 ID가 유효한지 추가 확인
+         if (allPitches.value[0]?.id) {
+            pitchIdToSelect = allPitches.value[0].id;
+            console.warn(`[PitchDetailView] 초기 피치 ID "${initialPitchIdFromUrl}"를 찾을 수 없어 첫 번째 피치 "${pitchIdToSelect}"를 선택합니다. URL 업데이트 필요.`);
+            needsUrlUpdate = true; // URL 업데이트 플래그 설정
+         } else {
+             // 첫 번째 피치의 ID가 유효하지 않은 경우
+             console.error("[PitchDetailView] 가져온 피치 목록의 첫 번째 피치 ID가 유효하지 않습니다.", allPitches.value[0]);
+             // 선택할 피치 없음 상태 유지 (pitchIdToSelect는 null)
+             pitchIdToSelect = null;
+         }
+
     } else {
-      // 해당 라우트에 피치가 없는 경우
-      selectedPitchId.value = null;
+      // 3. 해당 라우트에 피치가 없는 경우
+      pitchIdToSelect = null; // 선택할 피치 없음
       console.warn(`[PitchDetailView] 라우트 "${routeId}"에는 등록된 피치가 없습니다.`);
-      // 사용자에게 피치가 없음을 알리는 메시지가 v-else-if="!loading && allPitches.length === 0" 로 표시됩니다.
+    }
+
+    // 선택된 피치 ID 상태 업데이트
+    selectedPitchId.value = pitchIdToSelect;
+
+    // 필요한 경우에만 URL 업데이트 (선택할 피치가 있을 때만)
+    if (needsUrlUpdate && pitchIdToSelect) {
+        console.log("[PitchDetailView] router.replace 호출 직전 값 확인:");
+        console.log("  routeId:", props.routeId);
+        console.log("  pitchIdToSelect:", pitchIdToSelect);
+
+        // nextTick을 사용하여 DOM 업데이트 이후 라우트 이동을 시도 (타이밍 문제 방지 시도)
+        nextTick(() => {
+           router.replace({ params: { routeId: props.routeId, pitchId: pitchIdToSelect } });
+           console.log("[PitchDetailView] router.replace 호출됨.");
+        }).catch(err => {
+            console.error("[PitchDetailView] router.replace 중 오류 발생:", err);
+             error.value = new Error(`URL 업데이트 중 오류 발생: ${err.message}`); // 사용자에게 오류 표시
+        });
+
+    } else if (!pitchIdToSelect && allPitches.value.length > 0) {
+         // 피치 목록은 있지만 유효한 피치를 선택할 수 없는 경우
+         console.error("[PitchDetailView] 가져온 피치 목록에서 유효한 피치를 선택할 수 없습니다.");
+         error.value = new Error("피치 데이터를 불러왔으나 표시할 피치를 찾을 수 없습니다.");
+         // 선택적으로 이전 페이지로 이동 또는 오류 상태 표시 강화
+    } else if (!pitchIdToSelect && allPitches.value.length === 0 && !loading.value) {
+         // 피치 목록 자체가 없는 경우는 상단 v-else-if에서 메시지 표시
+         console.log("[PitchDetailView] 피치 목록 없음, router.replace 건너뜜.");
     }
 
 
@@ -164,26 +213,30 @@ const fetchAllPitchesForRoute = async (routeId) => {
   }
 };
 
-// ✅ loadSamplePitchData 함수와 samplePitches 데이터 제거 ✅
-// 샘플 데이터를 사용하지 않고 실제 Firestore 데이터를 로드합니다.
-// const samplePitches = [...]; // 제거
-// const loadSamplePitchData = () => { ... }; // 제거
-
 
 // 피치 선택 버튼 클릭 시 호출될 함수
 const selectPitch = (pitchId) => {
-  if (selectedPitchId.value === pitchId) {
-    console.log(`[PitchDetailView] 피치 "${pitchId}" 이미 선택됨.`);
-    return;
-  }
+  console.log(`[PitchDetailView] 피치 선택 버튼 클릭: ${pitchId}`);
   // 선택된 피치 ID가 현재 allPitches 목록에 있는지 확인
-  if (allPitches.value.find(p => p.id === pitchId)) {
+  const pitchExists = allPitches.value.some(p => p.id === pitchId);
+
+  if (pitchExists && selectedPitchId.value !== pitchId) {
     console.log(`[PitchDetailView] 피치 "${pitchId}" 선택.`);
     selectedPitchId.value = pitchId;
-    // URL의 pitchId를 선택된 피치 ID로 업데이트 (페이지 이동 없음)
-    router.replace({ params: { routeId: props.routeId, pitchId: pitchId } });
-  } else {
+    // URL의 pitchId를 선택된 피치 ID로 업데이트 (페이지 이동 없음, URL만 변경)
+    router.replace({ params: { routeId: props.routeId, pitchId: pitchId } })
+      .catch(err => {
+           console.error("[PitchDetailView] selectPitch - router.replace 중 오류 발생:", err);
+           // selectPitch 자체는 오류를 throw하지 않고, 오류 메시지만 표시
+           error.value = new Error(`피치 선택 후 URL 업데이트 중 오류 발생: ${err.message}`);
+      });
+  } else if (selectedPitchId.value === pitchId) {
+      console.log(`[PitchDetailView] 피치 "${pitchId}" 이미 선택됨.`);
+  }
+   else {
     console.warn(`[PitchDetailView] 피치 목록에 없는 피치 ID "${pitchId}" 선택 시도.`);
+     // 목록에 없는 피치 선택 시 오류 메시지 표시
+     error.value = new Error(`피치 목록에 없는 피치 ID (${pitchId}) 입니다.`);
   }
 };
 
@@ -200,7 +253,7 @@ onMounted(() => {
   const { routeId, pitchId } = props; // props에서 routeId와 pitchId 가져옴
   console.log(`[PitchDetailView] 마운트됨. 라우트 ID: ${routeId}, 초기 피치 ID: ${pitchId}. Firestore 데이터 로딩 시작.`);
   if (routeId) { // routeId가 유효하면 데이터 로드 시작
-    fetchAllPitchesForRoute(routeId); // ✅ 실제 Firestore 조회 함수 호출
+    fetchAllPitchesForRoute(routeId); // 실제 Firestore 조회 함수 호출
   } else {
     console.error("[PitchDetailView] 라우트 ID가 제공되지 않았습니다. 피치 데이터를 불러올 수 없습니다.");
     loading.value = false; // 로딩 상태 해제
@@ -224,9 +277,9 @@ onMounted(() => {
 }
 
 .pitch-diagram-section {
-border: 2px solid #218838;
-border-width:2px 0;
-padding-top: 20px;
+  border: 2px solid #218838;
+  border-width: 2px 0;
+  padding-top: 20px;
   text-align: center;
 }
 
