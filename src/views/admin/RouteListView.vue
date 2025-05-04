@@ -16,11 +16,16 @@
           <p>등록된 루트가 없습니다.</p>
         </div>
         <table v-else class="route-table">
+          <colgroup>
+            <col style="width:auto">
+            <col style="width:70px">
+            <col style="width:150px">
+            <col style="width:120px">
+          </colgroup>
           <thead>
             <tr>
               <th>이름</th>
               <th>난이도</th>
-              <th>위치 (Lat, Lng)</th>
               <th>등록일</th>
               <th>액션</th>
             </tr>
@@ -29,13 +34,12 @@
             <tr v-for="route in routes" :key="route.id">
               <td>{{ route.name || '이름 없음' }}</td>
               <td>{{ route.averageDifficulty || '정보 없음' }}</td> <!-- Updated field name -->
-              <td>{{ route.location?.lat || '정보 없음' }}, {{ route.location?.lng || '정보 없음' }}</td> <!-- Added null checks -->
               <td>{{ formatDate(route.timestamp) }}</td>
               <td class="actions">
                 <!-- 상세 보기 버튼 -->
                 <!-- <button @click="viewRouteDetail(route.id)" class="action-button view-button">상세</button> -->
                 <!-- 수정 버튼 -->
-                <button @click="editRoute(route)" class="action-button edit-button">수정</button>
+                <button @click="editRoute(route)" class="action-button edit-button">루트수정/피치추가</button>
                 <!-- 삭제 버튼 -->
                 <button @click="confirmDelete(route.id)" class="action-button delete-button">삭제</button>
               </td>
@@ -90,10 +94,10 @@
     emit('delete', routeId);
   };
   
-  // ✅✅✅ 상세 보기 버튼 클릭 시 라우트 상세 페이지로 이동 ✅✅✅
+  // ✅✅✅ 상세 보기 버튼 클릭 시 루트 상세 페이지로 이동 ✅✅✅
   const viewRouteDetail = (routeId) => {
     console.log(`[RouteListView] 상세 보기 클릭. 루트 ID: ${routeId}`);
-    // 'admin-route-detail' 라우트 이름과 파라미터(id)를 사용하여 이동
+    // 'admin-route-detail' 루트 이름과 파라미터(id)를 사용하여 이동
     router.push({ name: 'admin-route-detail', params: { id: routeId } });
   };
   

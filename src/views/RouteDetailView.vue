@@ -67,7 +67,7 @@
     </div>
 
     <div class="pitch-list-section" v-if="pitches.length > 0">
-      <h3>피치 선택</h3>
+      <!-- <h3>피치 선택</h3> -->
       <div class="pitch-buttons">
         <button
           v-for="pitch in pitches"
@@ -78,7 +78,7 @@
       </div>
     </div>
      <div v-else-if="!loading">
-       <p>해당 라우트의 피치 정보가 없습니다.</p>
+       <p>해당 루트의 피치 정보가 없습니다.</p>
      </div>
 
     <div v-if="loading" class="loading-message">정보 로딩 중...</div>
@@ -89,6 +89,7 @@
    <div v-else-if="!loading && !routeDetails && !error">
        <p>해당 루트 정보를 찾을 수 없습니다.</p>
    </div>
+   <button class="btn-feed" @click="goToWritePage">+ 피드쓰기</button>
 </template>
 
 <script setup>
@@ -138,12 +139,28 @@ const formatDate = (timestamp) => {
   const minutes = ('0' + date.getMinutes()).slice(-2);
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 };
+const goToWritePage = () => {
+  // 현재 페이지의 전체 URL을 가져옵니다. (호스트 이름 포함)
+  const currentRouteLink = route.fullPath;
 
+  console.log("[RouteDetailView] '피드쓰기' 버튼 클릭됨.");
+  console.log("전달할 카테고리:", '루트');
+  console.log("전달할 현재 페이지 링크:", currentRouteLink);
 
-// 라우트 상세 정보를 Firestore에서 가져오는 함수
+  // /board/write 경로로 이동하면서 쿼리 파라미터 전달
+  router.push({
+    path: "/board/write",
+    query: {
+      category: 'route', // 카테고리를 '루트'로 설정
+      linkedRouteUrl: currentRouteLink // 현재 페이지 링크 전달
+    }
+  });
+};
+
+// 루트 상세 정보를 Firestore에서 가져오는 함수
 const fetchRouteDetails = async (routeId) => {
   console.log(
-    `[RouteDetailView] 라우트 상세 정보 가져오기 시작 (ID: ${routeId}).`
+    `[RouteDetailView] 루트 상세 정보 가져오기 시작 (ID: ${routeId}).`
   );
   loading.value = true;
   error.value = null;
@@ -166,18 +183,18 @@ const fetchRouteDetails = async (routeId) => {
          location: data.location || { lat: '정보 없음', lng: '정보 없음' }
       };
       console.log(
-        `[RouteDetailView] 라우트 상세 정보 가져옴:`,
+        `[RouteDetailView] 루트 상세 정보 가져옴:`,
         routeDetails.value
       );
     } else {
       console.warn(
-        `[RouteDetailView] 라우트 문서 ${routeId}를 찾을 수 없습니다.`
+        `[RouteDetailView] 루트 문서 ${routeId}를 찾을 수 없습니다.`
       );
       routeDetails.value = null;
     }
   } catch (e) {
     console.error(
-      `[RouteDetailView] 라우트 상세 정보 가져오기 오류 (ID: ${routeId}):`,
+      `[RouteDetailView] 루트 상세 정보 가져오기 오류 (ID: ${routeId}):`,
       e
     );
     error.value = e;
@@ -188,10 +205,10 @@ const fetchRouteDetails = async (routeId) => {
 };
 
 
-// ✅✅✅ 특정 라우트의 피치 목록을 Firestore에서 가져오는 함수 - ID 우선 순위 수정 ✅✅✅
+// ✅✅✅ 특정 루트의 피치 목록을 Firestore에서 가져오는 함수 - ID 우선 순위 수정 ✅✅✅
 const fetchPitchesForRoute = async (routeId) => {
   console.log(
-    `[RouteDetailView] 라우트 "${routeId}"의 피치 목록 가져오기 시작 (Firestore).`
+    `[RouteDetailView] 루트 "${routeId}"의 피치 목록 가져오기 시작 (Firestore).`
   );
   pitches.value = []; // 이전 피치 목록 초기화
 
@@ -223,14 +240,14 @@ const fetchPitchesForRoute = async (routeId) => {
     });
     pitches.value = pitchesList; // 가져온 피치 목록 저장
     console.log(
-      `[RouteDetailView] 라우트 "${routeId}"의 피치 ${pitchesList.length}개 가져옴:`,
+      `[RouteDetailView] 루트 "${routeId}"의 피치 ${pitchesList.length}개 가져옴:`,
       pitchesList
     );
      console.log("[RouteDetailView] Fetched pitches data (with correct ID):", pitches.value);
 
   } catch (e) {
     console.error(
-      `[RouteDetailView] 라우트 "${routeId}"의 피치 목록 가져오기 오류:`,
+      `[RouteDetailView] 루트 "${routeId}"의 피치 목록 가져오기 오류:`,
       e
     );
     pitches.value = [];
@@ -264,7 +281,7 @@ const goToPitchDetail = (pitchId) => { // 매개변수 이름을 pitchId로 되�
   }
   // 현재 루트 ID가 유효한지 확인 (필요하다면)
   if (!currentRouteId) {
-       console.error("[RouteDetailView] 현재 라우트 ID를 찾을 수 없어 피치 상세로 이동할 수 없습니다. (Params ID:", route.params.id, ")");
+       console.error("[RouteDetailView] 현재 루트 ID를 찾을 수 없어 피치 상세로 이동할 수 없습니다. (Params ID:", route.params.id, ")");
        alert("루트 정보를 찾을 수 없어 피치 상세 페이지로 이동할 수 없습니다.");
        return;
   }
@@ -272,22 +289,22 @@ const goToPitchDetail = (pitchId) => { // 매개변수 이름을 pitchId로 되�
 
   console.log(`[RouteDetailView] 피치 선택: 피치 ID ${pitchId}. 상세 페이지로 이동.`);
 
-  // TODO: router/index.js에 'pitchDetail' 라우트를 정의하고, PitchDetailView.vue 컴포넌트 생성 필요
-  // 'pitchDetail' 라우트는 '/admin/routes/:routeId/pitches/:pitchId' 형식일 가능성이 높습니다. (다시 ID 사용)
+  // TODO: router/index.js에 'pitchDetail' 루트를 정의하고, PitchDetailView.vue 컴포넌트 생성 필요
+  // 'pitchDetail' 루트는 '/admin/routes/:routeId/pitches/:pitchId' 형식일 가능성이 높습니다. (다시 ID 사용)
   router.push({
-    name: "pitchDetail", // router/index.js에서 정의할 피치 상세 라우트 이름
+    name: "pitchDetail", // router/index.js에서 정의할 피치 상세 루트 이름
     params: {
-      routeId: currentRouteId, // 현재 라우트의 ID
+      routeId: currentRouteId, // 현재 루트의 ID
       pitchId: pitchId, // ✅ 피치 번호 대신 피치 ID 전달 (문서 ID)
     },
   }).catch(err => {
-    console.error("[RouteDetailView] 라우트 이동 오류:", err);
-    alert(`피치 상세 페이지로 이동 중 오류 발생: ${err.message}\n'pitchDetail' 라우트 및 라우트 파라미터(routeId, pitchId)가 올바르게 설정되었는지 확인하세요.`);
+    console.error("[RouteDetailView] 루트 이동 오류:", err);
+    alert(`피치 상세 페이지로 이동 중 오류 발생: ${err.message}\n'pitchDetail' 루트 및 루트 파라미터(routeId, pitchId)가 올바르게 설정되었는지 확인하세요.`);
   });
 };
 
 
-// 컴포넌트 마운트 시 라우트 상세 정보와 피치 목록을 가져옵니다.
+// 컴포넌트 마운트 시 루트 상세 정보와 피치 목록을 가져옵니다.
 onMounted(() => {
   const currentRouteId = props.id;
 
@@ -295,7 +312,7 @@ onMounted(() => {
     fetchRouteDetails(currentRouteId);
     fetchPitchesForRoute(currentRouteId);
   } else {
-    console.error("[RouteDetailView] 라우트 ID가 props로 제공되지 않았습니다.");
+    console.error("[RouteDetailView] 루트 ID가 props로 제공되지 않았습니다.");
     error.value = new Error("표시할 루트 정보를 찾을 수 없습니다 (ID 누락).");
     loading.value = false;
   }
@@ -448,6 +465,6 @@ onMounted(() => {
   color: #218838;
 }
 .pitch-buttons button + button {
-  margin-top: 10px;
+  /* margin-top: 10px;   */
 }
 </style>

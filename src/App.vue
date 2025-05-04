@@ -77,7 +77,7 @@ nav {
   border-top: 1px solid #e1e1e1;
   left: 0;
   right: 0;
-  height: 55px;
+  height: 50px;
   display: flex;
   /* 링크들을 균등하게 배치 */
   justify-content: space-around;
@@ -101,7 +101,7 @@ nav > .router-link-exact-active /* 기본 router-link가 렌더링하는 a 태�
 nav a {
   color: #999;
   text-decoration: none;
-  font-size: 13px;
+  font-size: 12px;
   display: flex; /* 아이콘과 텍스트를 세로로 배치하기 위해 flex 사용 */
   flex-direction: column; /* 세로 방향 정렬 */
   align-items: center; /* 가로 중앙 정렬 */
@@ -113,8 +113,8 @@ nav a {
 nav a:before{
   content: '';
   display: block;
-  width: 20px;
-  height: 18px;
+  width: 17px;
+  height: 16px;
   background-color:#999; /* 기본 아이콘 색상 */
   -webkit-mask-image: url(~@/assets/images/common/ico_menu_home.svg);
   -webkit-mask-size: cover;

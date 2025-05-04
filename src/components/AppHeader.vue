@@ -40,8 +40,8 @@ const userStore = useUserStore();
 
 const goToAdminPage = () => {
   console.log("[AppHeader] 관리자 페이지 버튼 클릭. /admin으로 이동.");
-  router.push({ name: "admin" }); // 관리자 라우트 이름으로 이동 (router/index.js에 정의)
-  // 또는 router.push('/admin'); // 관리자 라우트 경로로 이동
+  router.push({ name: "admin" }); // 관리자 루트 이름으로 이동 (router/index.js에 정의)
+  // 또는 router.push('/admin'); // 관리자 루트 경로로 이동
 };
 
 // 로그아웃 함수 - ✅ async로 만들고 userService의 logoutUser를 호출합니다.

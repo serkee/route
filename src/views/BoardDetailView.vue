@@ -36,6 +36,9 @@
           </p>
         </div>
       </div>
+      <div class="post-link" v-if="post.linkedRouteUrl">
+        <a :href="post.linkedRouteUrl" target="_blank" rel="noopener noreferrer">제안 경로 이동 ></a>
+      </div>
       <div class="content-body">
         <div v-if="post.imageUrl" class="img">
           <img :src="post.imageUrl" :alt="post.title + ' 이미지'" />
@@ -280,7 +283,7 @@ function getCategoryDisplayName(categoryValue) {
 const goToCategoryList = () => {
   // post 데이터가 로드되었고 category 값이 있을 때만 실행
   if (post.value && post.value.category) {
-    // /board 라우트로 이동하면서 post.category 값을 'category' 쿼리 파라미터로 전달
+    // /board 루트로 이동하면서 post.category 값을 'category' 쿼리 파라미터로 전달
     router.push({ path: "/board", query: { category: post.value.category } });
   } else {
     // 만약 post 데이터나 category가 없다면 기본 게시판 목록으로 이동
@@ -729,7 +732,7 @@ onMounted(async () => {
     // 댓글 목록 실시간 리스닝 시작
     listenForComments(postId);
   } else {
-    console.error("게시글 ID가 라우트 파라미터에 없습니다.");
+    console.error("게시글 ID가 루트 파라미터에 없습니다.");
     router.replace("/board"); // 게시글 ID 없으면 게시판 목록으로 리다이렉션
   }
 
@@ -1174,5 +1177,14 @@ onUnmounted(() => {
   font-size: 18px;
   color: #777;
   margin-top: 50px;
+}
+.post-link{
+  padding: 10px 20px 20px;
+  border-bottom: 1px solid #eee;
+}
+.post-link a{
+  font-weight: bold;
+  color: #222;
+  text-decoration: none;
 }
 </style>

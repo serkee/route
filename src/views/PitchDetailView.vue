@@ -1,5 +1,3 @@
-
-
 <template>
   <div class="container">
     <div class="header">
@@ -21,7 +19,7 @@
       </div>
     </div>
     <div v-else-if="!loading && allPitches.length === 0">
-      <p>해당 라우트의 피치 목록 정보가 없습니다.</p>
+      <p>해당 루트의 피치 목록 정보가 없습니다.</p>
     </div>
 
     <div class="pitch-diagram-section">
@@ -39,39 +37,33 @@
     <div class="pitch-info-section" v-if="currentPitchDetails">
       <div class="info-row">
         <div class="info-item">
-          <i class="fas fa-hashtag"></i> <span>번호 <strong>{{ currentPitchDetails.number || '정보 없음' }}</strong></span>
-        </div>
-        <div class="info-item">
            <i class="fas fa-signature"></i> <span>이름 <strong>{{ currentPitchDetails.name || '정보 없음' }}</strong></span>
         </div>
-      </div>
-      <div class="info-row">
         <div class="info-item">
           <i class="fas fa-ruler-vertical"></i>
           <span>길이 <strong>{{ currentPitchDetails.length || '정보 없음' }}</strong></span>
         </div>
+      </div>
+      <div class="info-row">
+        
         <div class="info-item">
           <i class="fas fa-chart-simple"></i>
           <span>난이도 <strong>{{ currentPitchDetails.difficulty || '정보 없음' }}</strong></span>
         </div>
-      </div>
-      <div class="info-row">
-         <div class="info-item">
+        <div class="info-item">
            <i class="fas fa-sliders-h"></i>
            <span>형태 <strong>{{ currentPitchDetails.climbingStyle || '정보 없음' }}</strong></span>
          </div>
-          <div class="info-item">
-            <i class="fas fa-bolt"></i> <span>볼트 <strong>{{ currentPitchDetails.bolts === undefined || currentPitchDetails.bolts === null ? '정보 없음' : currentPitchDetails.bolts }}</strong> 개</span>
-          </div>
-       </div>
+      </div>
+      
     </div>
-     <div v-else-if="!loading && !currentPitchDetails">
-       <p>선택된 피치 상세 정보를 불러올 수 없습니다.</p>
-     </div>
+    <div class="tools" v-if="currentPitchDetails">
+        {{ currentPitchDetails.bolts }}
+    </div>
 
      <div v-if="loading" class="loading-message">피치 정보 로딩 중...</div>
     <div v-if="error" class="error-message">피치 정보를 불러오는 데 오류가 발생했습니다: {{ error.message }}</div>
-
+<button class="btn-feed" @click="goToWritePage">+ 피드쓰기</button>
   </div>
 </template>
 
@@ -88,10 +80,10 @@ import { useRouter, useRoute } from 'vue-router';
 
 
 const router = useRouter(); // 라우터 인스턴스 가져옴
-const route = useRoute(); // 현재 라우트 정보 가져옴
+const route = useRoute(); // 현재 루트 정보 가져옴
 
 
-// props 정의 (라우트 설정에서 컴포넌트로 전달)
+// props 정의 (루트 설정에서 컴포넌트로 전달)
 const props = defineProps({
   routeId: {
     type: String,
@@ -104,7 +96,7 @@ const props = defineProps({
 });
 
 
-const allPitches = ref([]); // 해당 라우트의 모든 피치 목록
+const allPitches = ref([]); // 해당 루트의 모든 피치 목록
 const selectedPitchId = ref(null); // 현재 화면에 상세 정보를 표시할 피치의 ID
 
 const loading = ref(true); // 로딩 상태
@@ -117,10 +109,27 @@ const currentPitchDetails = computed(() => {
     return foundPitch;
 });
 
+const goToWritePage = () => {
+  // 현재 페이지의 전체 URL을 가져옵니다. (호스트 이름 포함)
+  const currentRouteLink = route.fullPath;
 
-// Firestore에서 특정 라우트의 모든 피치 목록을 가져오는 함수
+  console.log("[RouteDetailView] '피드쓰기' 버튼 클릭됨.");
+  console.log("전달할 카테고리:", '루트');
+  console.log("전달할 현재 페이지 링크:", currentRouteLink);
+
+  // /board/write 경로로 이동하면서 쿼리 파라미터 전달
+  router.push({
+    path: "/board/write",
+    query: {
+      category: 'route', // 카테고리를 '루트'로 설정
+      linkedRouteUrl: currentRouteLink // 현재 페이지 링크 전달
+    }
+  });
+};
+
+// Firestore에서 특정 루트의 모든 피치 목록을 가져오는 함수
 const fetchAllPitchesForRoute = async (routeId) => {
-  console.log(`[PitchDetailView] 라우트 "${routeId}"의 모든 피치 목록 Firestore에서 가져오기 시작.`);
+  console.log(`[PitchDetailView] 루트 "${routeId}"의 모든 피치 목록 Firestore에서 가져오기 시작.`);
   loading.value = true;
   error.value = null;
   allPitches.value = []; // 이전 데이터 초기화
@@ -141,7 +150,7 @@ const fetchAllPitchesForRoute = async (routeId) => {
       });
     });
     allPitches.value = pitchesList;
-    console.log(`[PitchDetailView] 라우트 "${routeId}"의 모든 피치 ${pitchesList.length}개 가져옴:`, allPitches.value);
+    console.log(`[PitchDetailView] 루트 "${routeId}"의 모든 피치 ${pitchesList.length}개 가져옴:`, allPitches.value);
 
     // 초기 선택할 피치 설정 로직
     const initialPitchIdFromUrl = props.pitchId;
@@ -170,9 +179,9 @@ const fetchAllPitchesForRoute = async (routeId) => {
          }
 
     } else {
-      // 3. 해당 라우트에 피치가 없는 경우
+      // 3. 해당 루트에 피치가 없는 경우
       pitchIdToSelect = null; // 선택할 피치 없음
-      console.warn(`[PitchDetailView] 라우트 "${routeId}"에는 등록된 피치가 없습니다.`);
+      console.warn(`[PitchDetailView] 루트 "${routeId}"에는 등록된 피치가 없습니다.`);
     }
 
     // 선택된 피치 ID 상태 업데이트
@@ -184,7 +193,7 @@ const fetchAllPitchesForRoute = async (routeId) => {
         console.log("  routeId:", props.routeId);
         console.log("  pitchIdToSelect:", pitchIdToSelect);
 
-        // nextTick을 사용하여 DOM 업데이트 이후 라우트 이동을 시도 (타이밍 문제 방지 시도)
+        // nextTick을 사용하여 DOM 업데이트 이후 루트 이동을 시도 (타이밍 문제 방지 시도)
         nextTick(() => {
            router.replace({ params: { routeId: props.routeId, pitchId: pitchIdToSelect } });
            console.log("[PitchDetailView] router.replace 호출됨.");
@@ -205,7 +214,7 @@ const fetchAllPitchesForRoute = async (routeId) => {
 
 
   } catch (e) {
-    console.error(`[PitchDetailView] 라우트 "${routeId}"의 모든 피치 목록 Firestore에서 가져오기 오류:`, e);
+    console.error(`[PitchDetailView] 루트 "${routeId}"의 모든 피치 목록 Firestore에서 가져오기 오류:`, e);
     error.value = e;
   } finally {
     loading.value = false;
@@ -251,13 +260,13 @@ const goBack = () => {
 // 컴포넌트 마운트 시 실제 Firestore 데이터를 로드합니다.
 onMounted(() => {
   const { routeId, pitchId } = props; // props에서 routeId와 pitchId 가져옴
-  console.log(`[PitchDetailView] 마운트됨. 라우트 ID: ${routeId}, 초기 피치 ID: ${pitchId}. Firestore 데이터 로딩 시작.`);
+  console.log(`[PitchDetailView] 마운트됨. 루트 ID: ${routeId}, 초기 피치 ID: ${pitchId}. Firestore 데이터 로딩 시작.`);
   if (routeId) { // routeId가 유효하면 데이터 로드 시작
     fetchAllPitchesForRoute(routeId); // 실제 Firestore 조회 함수 호출
   } else {
-    console.error("[PitchDetailView] 라우트 ID가 제공되지 않았습니다. 피치 데이터를 불러올 수 없습니다.");
+    console.error("[PitchDetailView] 루트 ID가 제공되지 않았습니다. 피치 데이터를 불러올 수 없습니다.");
     loading.value = false; // 로딩 상태 해제
-    error.value = new Error("라우트 정보를 찾을 수 없습니다."); // 오류 상태 설정
+    error.value = new Error("루트 정보를 찾을 수 없습니다."); // 오류 상태 설정
   }
 });
 </script>
@@ -369,6 +378,8 @@ onMounted(() => {
   color: #fff;
   font-weight: bold;
 }
+
+.tools{text-align: left; padding: 20px 0 0 0;}
 
 /* 이전의 .icon 클래스 스타일은 더 이상 필요 없거나 조정 필요 */
 </style>

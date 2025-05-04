@@ -15,6 +15,7 @@ import BoardDetailView from '../views/BoardDetailView.vue';
 import SimpleTestPage from '../views/SimpleTestPage.vue'
 import UserProfileView from '@/views/UserProfileView.vue'
 import ForgotPasswordView from '@/views/ForgotPasswordView.vue'
+import MapSearchView from '../views/MapSearchView.vue';
 
 // ✅ 관리자 관련 컴포넌트 임포트
 import AdminView from '../views/admin/AdminView.vue'; // 관리자 페이지 레이아웃
@@ -57,31 +58,38 @@ const routes = [
     meta: { requiresAuth: true } // 인증 필요
   },
   {
-    path: '/map', // MapView 라우트
+    path: '/map', // MapView 루트
     name: 'map',
     component: MapView,
     meta: { requiresAuth: true } // 인증 필요
   },
   {
-    path: '/user', // UserView 라우트
+    path: '/map/search',
+    name: 'mapSearch', // 루트 이름
+    component: MapSearchView,
+     // 쿼리 파라미터 'q'를 컴포넌트의 props로 전달받도록 설정 (선택 사항)
+     // props: route => ({ query: route.query.q })
+  },
+  {
+    path: '/user', // UserView 루트
     name: 'user',
     component: UserView,
     meta: { requiresAuth: true } // 인증 필요
   },
   {
-    path: '/board', // BoardView 라우트
+    path: '/board', // BoardView 루트
     name: 'board',
     component: BoardView,
     meta: { requiresAuth: true } // 인증 필요
   },
   {
-    path: '/board/write', // 게시글 작성 페이지 라우트 정의
+    path: '/board/write', // 게시글 작성 페이지 루트 정의
     name: 'board-write',
     component: BoardWriteView,
     meta: { requiresAuth: true } // 작성 페이지도 로그인이 필요하다고 가정
   },
   {
-    path: '/board/:id', // 게시글 상세 페이지 라우트 정의, 동적 파라미터 ':id' 사용
+    path: '/board/:id', // 게시글 상세 페이지 루트 정의, 동적 파라미터 ':id' 사용
     name: 'board-detail',
     component: BoardDetailView,
     meta: { requiresAuth: true } // 상세 페이지도 로그인이 필요하다고 가정
@@ -91,33 +99,33 @@ const routes = [
     component: SimpleTestPage // 컴포넌트 연결
   }, {
     path: '/profile', // 이동할 경로
-    name: 'user-profile', // 라우트 이름 설정
+    name: 'user-profile', // 루트 이름 설정
     component: UserProfileView, // 임포트한 UserProfileView 컴포넌트 연결
     meta: { requiresAuth: true } // 이 페이지는 로그인 상태에서만 접근 가능하도록 설정
   }, {
     path: '/forgot-password', // 비밀번호 찾기 페이지
-    name: 'forgot-password', // 라우트 이름
+    name: 'forgot-password', // 루트 이름
     component: ForgotPasswordView, // 임포트한 ForgotPasswordView 컴포넌트 연결
     meta: { requiresAuth: false } // 비밀번호 찾기 페이지는 인증 불필요
   },
   {
-    path: '/route/:id', // 경로 ID를 파라미터로 받습니다.
-    name: 'routeDetail', // 라우트 이름 (MapView.vue에서 사용)
-    component: RouteDetailView, // 이 컴포넌트에서 상세 내용을 표시할 것입니다. (새로 만들 예정)
-    props: true // 라우트 파라미터 (id)를 컴포넌트 props로 전달
+    path: '/routes/:id', // <-- '/admin' 부분을 제거했습니다. (또는 원하는 다른 경로로 변경)
+    name: 'admin-route-detail', // <-- 루트 이름은 그대로 유지
+    component: RouteDetailView, // 실제 상세 페이지 컴포넌트 지정
+    props: true // 루트 파라미터 (id)를 컴포넌트 props로 전달
   },
   {
-    path: '/route/:routeId/pitch/:pitchId', // 라우트 ID와 피치 ID를 파라미터로 받습니다.
-    name: 'pitchDetail', // 라우트 이름 (RouteDetailView.vue에서 사용)
+    path: '/route/:routeId/pitch/:pitchId', // 루트 ID와 피치 ID를 파라미터로 받습니다.
+    name: 'pitchDetail', // 루트 이름 (RouteDetailView.vue에서 사용)
     component: PitchDetailView, // 이 컴포넌트에서 피치 상세 내용을 표시할 것입니다. (새로 만들 파일)
-    props: true // 라우트 파라미터 (routeId, pitchId)를 컴포넌트 props로 전달
+    props: true // 루트 파라미터 (routeId, pitchId)를 컴포넌트 props로 전달
   },
   {
     path: '/admin', // 관리자 페이지 기본 경로
     name: 'admin',
     component: AdminView, // AdminView 컴포넌트 사용
     meta: { requiresAdmin: true }, // ✅ 관리자 권한이 필요함을 표시하는 메타 필드
-    children: [ // 관리자 페이지 내 하위 메뉴에 대한 라우트
+    children: [ // 관리자 페이지 내 하위 메뉴에 대한 루트
       {
         path: 'users', // '/admin/users' 경로
         name: 'adminUsers',
@@ -165,7 +173,7 @@ router.beforeEach(async (to, from, next) => {
     return;
   }
 
-  // ✅ STEP 2: 로딩이 완료된 신뢰할 수 있는 사용자 상태와 라우트 요구사항을 확인합니다.
+  // ✅ STEP 2: 로딩이 완료된 신뢰할 수 있는 사용자 상태와 루트 요구사항을 확인합니다.
   const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin);
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
   const isLoggedIn = userStore.isAuthenticated;
@@ -175,7 +183,7 @@ router.beforeEach(async (to, from, next) => {
 
   // ✅ STEP 3: 확인된 상태 및 요구사항에 따라 최종 네비게이션 결정을 합니다.
 
-  // 시나리오 1: 라우트가 관리자 권한을 필요로 하는 경우
+  // 시나리오 1: 루트가 관리자 권한을 필요로 하는 경우
   if (requiresAdmin) {
     if (isLoggedIn && isAdmin) {
       console.log(`[Router Guard] 관리자 ${userStore.currentUser?.uid} 접근 허용 (관리자 페이지).`);
@@ -185,20 +193,20 @@ router.beforeEach(async (to, from, next) => {
       next({ name: 'home' }); // 관리자 아니면 홈으로 리다이렉트
     }
   }
-  // 시나리오 2: 라우트가 일반 인증만 필요하고 (관리자 페이지는 아님), 로그인되지 않은 경우
+  // 시나리오 2: 루트가 일반 인증만 필요하고 (관리자 페이지는 아님), 로그인되지 않은 경우
   else if (requiresAuth && !isLoggedIn) {
       console.warn(`[Router Guard] 접근 거부: ${to.fullPath}. 인증 필요, 로그인 안됨.`);
       next({ name: 'login' }); // 로그인 페이지로 리다이렉트
   }
   // ✅ 시나리오 3: 사용자는 로그인 상태인데, 특정 공개 페이지(로그인, 회원가입, 스플래시 등)로 접근하려는 경우
   else if (isLoggedIn && !requiresAdmin && !requiresAuth) {
-    // ✅✅✅ 리다이렉트할 공개 라우트 목록에 'splash' (즉, '/' 경로)를 추가합니다. ✅✅✅
+    // ✅✅✅ 리다이렉트할 공개 루트 목록에 'splash' (즉, '/' 경로)를 추가합니다. ✅✅✅
     const unauthenticatedRoutesToRedirect = ['login', 'signup', 'forgot-password', 'splash']; // <-- 'splash' 추가
 
     if (unauthenticatedRoutesToRedirect.includes(to.name)) {
        console.log(`[Router Guard] 로그인 상태에서 공개 페이지 ${to.fullPath} 접근 시도. /home으로 리디렉션.`);
        // ✅✅✅ 로그인 후 기본 페이지로 리다이렉트 대상을 '/home' (name: 'home')으로 변경합니다. ✅✅✅
-       // '/home' 라우트의 name이 'home'으로 되어 있어야 합니다.
+       // '/home' 루트의 name이 'home'으로 되어 있어야 합니다.
        next({ name: 'home' }); // <-- { name: 'board', params: { category: 'all' } } 에서 변경
     } else {
       // 로그인 상태이고, 관리자/인증 페이지도 아니며, 리다이렉트 목록에 없는 다른 공개 페이지인 경우 -> 허용
@@ -208,7 +216,7 @@ router.beforeEach(async (to, from, next) => {
   }
   // 시나리오 4: 위의 어떤 경우에도 해당하지 않는 경우 -> 허용
   else {
-    console.log(`[Router Guard] 라우트 ${to.fullPath} 접근 허용.`);
+    console.log(`[Router Guard] 루트 ${to.fullPath} 접근 허용.`);
     next();
   }
 

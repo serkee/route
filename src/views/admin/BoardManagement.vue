@@ -222,10 +222,10 @@ const formatDate = (date) => {
 
 const goToPostDetail = (postId) => { /* ... (same goToPostDetail function) ... */
   console.log(`[BoardManagement] 게시글 ${postId} 제목 클릭. 새 탭으로 상세 페이지 이동.`);
-    // ✅ 게시글 상세 페이지의 라우트 경로에 맞게 URL을 생성합니다.
-    // 예: /post/:id 라우트를 사용한다면 const url = `/post/${postId}`;
-    // 예: /board/:id 라우트를 사용한다면 const url = `/board/${postId}`;
-  const url = `/board/${postId}`; // 여러분의 게시글 상세 라우트 경로에 맞게 수정
+    // ✅ 게시글 상세 페이지의 루트 경로에 맞게 URL을 생성합니다.
+    // 예: /post/:id 루트를 사용한다면 const url = `/post/${postId}`;
+    // 예: /board/:id 루트를 사용한다면 const url = `/board/${postId}`;
+  const url = `/board/${postId}`; // 여러분의 게시글 상세 루트 경로에 맞게 수정
   window.open(url, '_blank'); // '_blank'는 새 탭/창을 의미
 };
 

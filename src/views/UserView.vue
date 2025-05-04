@@ -167,7 +167,7 @@ onMounted(() => {
   position: fixed; /* 상단 고정 */
   left:0;
   right:0;
-  top: 50px; /* 헤더 높이(예시 50px) 아래에 위치 */
+  top: 30px; /* 헤더 높이(예시 50px) 아래에 위치 */
   z-index: 2;
   background: #fff;
   border-bottom: 1px solid rgb(223, 223, 223); /* 탭 하단 구분선 */
@@ -187,13 +187,13 @@ onMounted(() => {
   text-align: center; /* 텍스트 중앙 정렬 */
 }
 .tab > ul > li > button{
-  height: 40px; /* 버튼 높이 */
+  height: 50px; /* 버튼 높이 */
   font-size: 16px; /* 폰트 크기 */
   border:0;
   border-bottom: 2px solid transparent; /* 비활성 탭 하단 선 (투명) */
   background: transparent;
   width: 100%;
-  padding: 0;
+  padding: 10px 0 0;
   cursor: pointer;
   color: #555; /* 비활성 탭 글자 색상 */
   transition: all 0.3s ease; /* 부드러운 전환 효과 */

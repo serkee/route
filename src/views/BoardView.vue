@@ -20,11 +20,15 @@
           <li
             v-for="post in posts"
             :key="post.id"
-            :class="{ notice: post.isNotice }"
+            :class="{
+              notice: post.isNotice,
+              'route-restricted': post.category === 'route' && !(currentUser && (currentUser.uid === post.authorId || userStore.isCurrentUserAdmin))
+            }"
           >
             <a
               href="javascript:void(0)"
               @click.prevent="goToPostDetail(post.id)"
+              :class="{ 'disabled-link': post.category === 'route' && !(currentUser && (currentUser.uid === post.authorId || userStore.isCurrentUserAdmin)) }"
             >
               <div class="txt">
                 <p>
@@ -73,6 +77,11 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "@/firebase";
+import { getAuth, onAuthStateChanged } from "firebase/auth"; // getAuth, onAuthStateChanged import
+
+// Pinia 스토어 임포트 (관리자 상태 확인 및 사용자 정보)
+import { useUserStore } from "@/store/user"; // <-- useUserStore 임포트
+
 
 const activeTab = ref(0);
 
@@ -85,6 +94,9 @@ const route = useRoute();
 const posts = ref([]);
 
 let unsubscribe = null;
+const currentUser = ref(null);
+const userStore = useUserStore(); // <-- userStore 인스턴스 가져오기
+
 
 const categoryMap = {
   0: "free",
@@ -166,12 +178,47 @@ const goToWritePage = () => {
 };
 
 const goToPostDetail = (postId) => {
-  console.log("게시글 클릭. 상세 페이지로 이동 (ID:", postId, ")");
-  router.push(`/board/${postId}`);
+  console.log("게시글 클릭. 상세 페이지로 이동 시도 (ID:", postId, ")");
+
+  // Find the post object in the current list
+  const post = posts.value.find(p => p.id === postId);
+
+  if (!post) {
+    console.warn(`게시글 ID ${postId}를 목록에서 찾을 수 없습니다.`);
+    // This shouldn't happen if clicking a list item, but as a safeguard
+    router.push(`/board/${postId}`); // Attempt navigation anyway? Or alert?
+    return;
+  }
+
+  // Check category and permissions only for 'route' category
+  if (post.category === 'route') {
+    console.log("루트 게시글 클릭됨.");
+    const isAuthor = currentUser.value && currentUser.value.uid === post.authorId;
+    const isAdmin = userStore.isCurrentUserAdmin;
+
+    if (isAuthor || isAdmin) {
+      console.log("권한 확인됨. 상세 페이지로 이동.");
+      router.push(`/board/${postId}`);
+    } else {
+      console.log("권한 없음. 상세 페이지 이동 차단.");
+      alert("해당 루트 게시글은 작성자 본인 또는 관리자만 상세 내용을 볼 수 있습니다.");
+      // Prevent navigation
+    }
+  } else {
+    // For other categories, allow navigation
+    console.log(`${post.category} 게시글 클릭됨. 상세 페이지로 이동.`);
+    router.push(`/board/${postId}`);
+  }
 };
 
 // *** onMounted 훅 수정: URL 쿼리 파라미터 읽어서 초기 카테고리 설정 ***
 onMounted(() => {
+  const auth = getAuth();
+  currentUser.value = auth.currentUser; // 마운트 시점의 사용자 정보 설정
+   console.log("[BoardView] mounted. Initial currentUser UID:", currentUser.value ? currentUser.value.uid : 'None');
+   console.log("[BoardView] mounted DEBUG: userStore.isCurrentUserAdmin (initial):", userStore.isCurrentUserAdmin); // 관리자 상태 초기값 확인
+
+  
   // 컴포넌트 마운트 시 URL 쿼리 파라미터에서 'category' 값을 읽습니다.
   const categoryFromQuery = route.query.category;
   let initialCategory;
@@ -211,6 +258,11 @@ onMounted(() => {
 
   // 'posts'는 실제 Firestore 컬렉션 이름으로 변경하세요.
   listenForPosts("posts", initialCategory); // 결정된 초기 카테고리로 데이터 로드
+  const authListener = onAuthStateChanged(auth, (user) => {
+       currentUser.value = user; // 사용자 변경 시 currentUser ref 업데이트
+       console.log("[BoardView] Auth state changed. currentUser UID:", user ? user.uid : 'None');
+       // isCurrentUserAdmin은 스토어에 의해 자동으로 반응성을 가집니다.
+   });
 });
 
 onUnmounted(() => {
@@ -234,7 +286,7 @@ onUnmounted(() => {
 .content {
   width: 100%;
   position: relative;
-  padding-top: 50px; /* 헤더 + 탭 높이에 맞춰 조정 */
+  padding-top: 30px; /* 헤더 + 탭 높이에 맞춰 조정 */
 }
 .tab {
   position: fixed;
@@ -242,7 +294,7 @@ onUnmounted(() => {
   right: 0px;
   top: var(
     --header-height,
-    50px
+    40px
   ); /* 실제 헤더 높이에 맞춰 top 조정. 필요하다면 CSS 변수 --header-height 값을 정의하세요. */
   z-index: 2;
   padding: 0 20px;
@@ -250,7 +302,7 @@ onUnmounted(() => {
 }
 .tab > ul {
   display: flex;
-  padding: 20px 0 10px;
+  padding: 10px 0 10px;
   gap: 10px;
 }
 .tab > ul > li {

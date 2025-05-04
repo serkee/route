@@ -9,16 +9,16 @@
         <input type="text" v-model="routeName" placeholder="루트 이름" />
       </div>
       <div class="route-base-row">
+        <label for="">등반 개요</label>
+        <input type="text" v-model="climbingOverview" placeholder="등반 개요" />
+      </div>
+      <div class="route-base-row">
         <label for="">위도</label>
         <input type="text" v-model="routeLocationLat" placeholder="위도" />
       </div>
       <div class="route-base-row">
         <label for="">경도</label>
         <input type="text" v-model="routeLocationLng" placeholder="경도" />
-      </div>
-      <div class="route-base-row">
-        <label for="">등반 개요</label>
-        <input type="text" v-model="climbingOverview" placeholder="등반 개요" />
       </div>
       <div class="route-base-row">
         <label for="">등반 형태</label>
@@ -40,7 +40,8 @@
         <label for="">개척자</label>
         <input type="text" v-model="developer" placeholder="개척자" />
       </div>
-      <div class="route-base-row">
+    </div>
+    <div class="route-base-row">
         <label for="">이미지 첨부</label>
         <input type="file" @change="handleImageChange" accept="image/*" />
       </div>
@@ -48,36 +49,39 @@
       <!-- 이미지 미리보기 -->
       <div v-if="selectedImageUrl" class="image-preview">
         <p>현재 이미지:</p>
-        <div v-if="
+        <div
+          v-if="
             isEditing &&
             selectedImageUrl &&
             !selectedImageUrl.startsWith('blob:')
-          ">
-        <button @click="removeExistingImage">기존 이미지를 삭제</button>
+          "
+        >
+          <button @click="removeExistingImage">기존 이미지를 삭제</button>
         </div>
+        <div v-else-if="selectedImageUrl && selectedImageUrl.startsWith('blob:')" style="margin-bottom:10px">
         <button
-          v-else-if="selectedImageUrl && selectedImageUrl.startsWith('blob:')"
+          
           @click="cancelSelectedImage"
         >
           선택한 이미지를 취소
         </button>
+        </div>
         <img
           :src="selectedImageUrl"
           :alt="isEditing ? '기존 이미지' : '선택된 이미지'"
         />
-        
-        
       </div>
 
       <!-- 액션 버튼 (루트 저장/취소) -->
       <div class="route-form-actions">
-        <button @click="cancelEdit" :disabled="isSaving" class="outline">취소</button>
+        <button @click="cancelEdit" :disabled="isSaving" class="outline">
+          취소
+        </button>
         <!-- ✅ 취소 버튼 비활성화 추가 -->
         <button @click="saveForm" :disabled="!isFormValid || isSaving">
           {{ isSaving ? "저장 중..." : isEditing ? "루트 수정" : "루트 추가" }}
         </button>
       </div>
-    </div>
 
     <!-- ⭐⭐ 피치 관리 섹션 (수정 모드에서만 표시) ⭐⭐ -->
     <div v-if="isEditing" class="pitch-management-section">
@@ -95,9 +99,7 @@
         <ul>
           <li v-for="pitch in pitches" :key="pitch.id">
             <span>
-            {{ pitch.number }}피치 - {{ pitch.name || "이름 없음" }} ({{
-              pitch.difficulty || "정보 없음"
-            }})
+              {{ pitch.name || "이름 없음" }}
             </span>
             <!-- 피치 액션 버튼 -->
             <button @click="editPitch(pitch)">수정</button>
@@ -114,10 +116,6 @@
         <h4>{{ isEditingPitch ? "피치 수정" : "새 피치 추가" }}</h4>
 
         <!-- 수정 모드일 때 피치 ID 표시 -->
-        <div v-if="isEditingPitch && currentPitchId" class="pitch-id-display">
-          <p><strong>피치 ID:</strong> {{ currentPitchId }}</p>
-        </div>
-
         <!-- 피치 입력 필드 -->
         <input
           type="hidden"
@@ -125,36 +123,66 @@
           value="1"
           placeholder="피치 번호 (예: 1, 2)"
         />
-        <input
-          type="text"
-          v-model="pitchName"
-          placeholder="피치 이름 (선택 사항)"
-        />
-        <input type="text" v-model="pitchLength" placeholder="길이 (예: 20m)" />
-        <input
-          type="text"
-          v-model="pitchDifficulty"
-          placeholder="난이도 (예: 5.10a)"
-        />
-        <input
-          type="text"
-          v-model="pitchClimbingStyle"
-          placeholder="등반 형태 (예: 슬랩, 크랙)"
-        />
-        <input
-          type="number"
-          v-model="pitchBolts"
-          placeholder="볼트 수 (숫자만)"
-        />
+        <div class="route-base-form">
+        <div class="route-base-row">
+          <label for="">피치 이름</label>
+          <input
+            type="text"
+            v-model="pitchName"
+            placeholder="피치 이름 (선택 사항)"
+          />
+        </div>
+        <div class="route-base-row">
+          <label for="">길이</label>
+          <input
+            type="text"
+            v-model="pitchLength"
+            placeholder="길이 (예: 20m)"
+          />
+        </div>
+        <div class="route-base-row">
+          <label for="">난이도</label>
+          <input
+            type="text"
+            v-model="pitchDifficulty"
+            placeholder="난이도 (예: 5.10a)"
+          />
+        </div>
+        <div class="route-base-row">
+          <label for="">등반 형태</label>
+          <input
+            type="text"
+            v-model="pitchClimbingStyle"
+            placeholder="등반 형태 (예: 슬랩, 크랙)"
+          />
+        </div>
+        </div>
+        <div class="route-base-row">
+          <label for="">장비</label>
+          <textarea
+            type="number"
+            v-model="pitchBolts"
+            placeholder="장비"
+          ></textarea>
+        </div>
+        <div class="route-base-row">
+          <label for="">루트 이름</label>
 
-        <!-- 피치 이미지 업로드 -->
-        <input type="file" @change="handlePitchImageChange" accept="image/*" />
+          <!-- 피치 이미지 업로드 -->
+          <input
+            type="file"
+            @change="handlePitchImageChange"
+            accept="image/*"
+          />
+        </div>
 
         <!-- 피치 이미지 미리보기 -->
-        <div v-if="selectedPitchImageUrl" class="image-preview">
-          <p>현재 피치 이미지:</p>
+        <div class="route-base-row" v-if="selectedPitchImageUrl">
+          <label for="">현재 피치 이미지</label>
+        <div class="image-preview">
           <img :src="selectedPitchImageUrl" alt="피치 이미지" />
           <!-- 수정 모드에서 기존 이미지거나, 추가 모드에서 선택한 이미지 취소 -->
+          <div>
           <button
             v-if="
               isEditingPitch &&
@@ -173,6 +201,8 @@
           >
             선택한 피치 이미지 취소
           </button>
+          </div>
+        </div>
         </div>
 
         <!-- ✅ 추가: 피치 저장 중 로딩 메시지 ✅ -->
@@ -207,7 +237,7 @@
   </div>
 </template>
   
-  <script setup>
+<script setup>
 /* eslint-disable no-undef */
 
 import { ref, watch, computed, toRefs, onUnmounted } from "vue";
@@ -270,7 +300,7 @@ const pitchName = ref(""); // 피치 이름 (선택 사항)
 const pitchLength = ref(""); // 길이
 const pitchDifficulty = ref(""); // 난이도
 const pitchClimbingStyle = ref(""); // 등반 형태
-const pitchBolts = ref(null); // 볼트 수 (숫자)
+const pitchBolts = ref(""); // ✅ 볼트 수를 텍스트로 저장하기 위한 ref (초기값 빈 문자열)
 const selectedPitchImageFile = ref(null); // 선택된 피치 이미지 파일 객체
 const selectedPitchImageUrl = ref(""); // 피치 이미지 미리보기를 위한 URL
 const originalPitchImageUrl = ref(""); // 수정 시 기존 피치 이미지 URL 저장
@@ -287,7 +317,7 @@ const resetPitchForm = () => {
   pitchLength.value = "";
   pitchDifficulty.value = "";
   pitchClimbingStyle.value = "";
-  pitchBolts.value = null; // 숫자는 null로 초기화
+  pitchBolts.value = ""; // ✅ 빈 문자열로 초기화
   selectedPitchImageFile.value = null;
   selectedPitchImageUrl.value = "";
   originalPitchImageUrl.value = "";
@@ -534,10 +564,12 @@ const editPitch = (pitch) => {
   pitchLength.value = pitch.length || "";
   pitchDifficulty.value = pitch.difficulty || "";
   pitchClimbingStyle.value = pitch.climbingStyle || "";
-  pitchBolts.value = pitch.bolts === undefined ? null : pitch.bolts; // undefined일 경우 null로 처리
+  // ✅ pitch.bolts가 null/undefined일 경우 빈 문자열로, 그 외에는 문자열로 변환하여 할당
+  pitchBolts.value = pitch.bolts !== undefined && pitch.bolts !== null ? String(pitch.bolts) : "";
+  selectedPitchImageFile.value = null; // 새 파일 선택 시 덮어쓰기 위해 null로 시작
   selectedPitchImageUrl.value = pitch.imagePath || ""; // 기존 이미지 URL 미리보기
   originalPitchImageUrl.value = pitch.imagePath || ""; // 기존 이미지 URL 저장 (제거 판단용)
-  selectedPitchImageFile.value = null; // 새 파일 선택 시 덮어쓰기 위해 null로 시작
+
 
   console.log(
     `[RouteFormView] 피치 수정 폼 열기 (ID: ${pitch.id})。 데이터:`,
@@ -603,13 +635,12 @@ const isPitchFormValid = computed(() => {
   const lengthValid = pitchLength.value.trim() !== "";
   const difficultyValid = pitchDifficulty.value.trim() !== "";
   const styleValid = pitchClimbingStyle.value.trim() !== "";
-  // 볼트 수는 선택 사항이거나 0 이상의 유효한 숫자
-  const boltsValid =
-    pitchBolts.value === null ||
-    pitchBolts.value === "" ||
-    (!isNaN(Number(pitchBolts.value)) && Number(pitchBolts.value) >= 0);
 
-  // length, difficulty, style이 비어있지 않고 boltsValid가 true인지 검사합니다.
+  // ✅ pitchBolts.value가 null/undefined가 아니고 문자열로 변환 후 trim 했을 때 비어있지 않은지 확인
+  const boltsValue = pitchBolts.value;
+  const boltsValid = boltsValue !== null && boltsValue !== undefined && String(boltsValue).trim() !== ""; // 장비 필드가 비어있지 않아야 유효
+
+  // length, difficulty, style, 장비 필드가 비어있지 않아야 유효
   return lengthValid && difficultyValid && styleValid && boltsValid;
 });
 
@@ -619,8 +650,8 @@ const savePitch = async () => {
   if (!isPitchFormValid.value) {
     // 피치 번호가 필수가 아니므로 메시지 수정
     pitchFormError.value = new Error(
-      "피치 정보를 올바르게 입력해주세요 (길이, 난이도, 등반 형태 필수)."
-    );
+      "피치 정보를 올바르게 입력해주세요 (길이, 난이도, 등반 형태, 장비 필수)."
+    ); // 메시지 업데이트
     return;
   }
 
@@ -635,6 +666,11 @@ const savePitch = async () => {
   // 유효한 숫자가 아닌 경우도 null로 처리할 수 있습니다.
   // const pitchNumberValue = isNaN(Number(pitchNumber.value)) || pitchNumber.value === null || pitchNumber.value === '' ? null : parseInt(String(pitchNumber.value));
 
+  // ✅ pitchBolts.value가 null/undefined가 아닐 경우 문자열로 변환 후 trim
+  const boltsValue = pitchBolts.value;
+  const processedBolts = boltsValue !== null && boltsValue !== undefined ? String(boltsValue).trim() : ''; // null/undefined면 빈 문자열로 처리
+
+
   const pitchData = {
     id: currentPitchId.value, // 수정 시 ID 포함 (추가 시에는 null)
     number: pitchNumberValue, // 처리된 피치 번호 값
@@ -642,10 +678,7 @@ const savePitch = async () => {
     length: pitchLength.value.trim(),
     difficulty: pitchDifficulty.value.trim(),
     climbingStyle: pitchClimbingStyle.value.trim(),
-    bolts:
-      pitchBolts.value === null || pitchBolts.value === ""
-        ? null
-        : parseInt(String(pitchBolts.value)), // 숫자로 변환, 비어있으면 null
+    bolts: processedBolts, // ✅ 처리된 장비 값 저장
     selectedPitchImageFile: selectedPitchImageFile.value, // 파일 객체 (Firestore에 저장 안 함)
     // 기존 피치 이미지 제거 요청 플래그: 수정 모드이고, 원래 이미지가 있었으며, 새 파일 없고, 미리보기도 없을 때
     removeExistingImage:
@@ -826,6 +859,9 @@ h2 {
 
 /* 루트 기본 정보 폼 섹션 */
 .route-base-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
 .route-base-form h3 {
@@ -834,14 +870,20 @@ h2 {
   margin-bottom: 15px;
 }
 
-.route-base-form input[type="text"],
-.route-base-form input[type="file"] {
+.route-base-row input[type="text"],
+.route-base-row input[type="file"] {
   display: block;
-  width: calc(100% - 22px);
+  width: calc(100%);
   padding: 5px 10px;
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 1em;
+}
+.route-base-form .route-base-row label{
+  margin-top: 0;
+}
+.route-base-row label{
+  margin-top: 10px;
 }
 
 /* 이미지 미리보기 스타일 */
@@ -890,8 +932,8 @@ h2 {
   padding-top: 20px;
   border-top: 1px solid #e1e1e1;
 }
-.pitch-management-tit{
-    margin-bottom: 15px;
+.pitch-management-tit {
+  margin-bottom: 15px;
   display: flex;
   justify-content: space-around;
   align-items: center;
@@ -901,7 +943,6 @@ h2 {
   color: #007bff;
   font-weight: bold;
   flex: 1;
-  
 }
 
 .add-pitch-button {
@@ -954,8 +995,8 @@ h2 {
   font-size: 0.9em;
   color: #444;
 }
-.pitch-list li span{
-    flex: 1;
+.pitch-list li span {
+  flex: 1;
 }
 
 .pitch-list li:last-child {
@@ -990,6 +1031,10 @@ h2 {
   background-color: #c82333;
 }
 
+.pitch-list label{
+  color: #0056b3;
+}
+
 /* ⭐⭐ 피치 추가/수정 폼 컨테이너 스타일 ⭐⭐ */
 .pitch-form-container {
   margin-top: 20px;
@@ -1013,8 +1058,7 @@ h2 {
 .pitch-form-container input[type="number"] {
   /* 숫자 입력 타입 추가 */
   display: block;
-  width: calc(100% - 22px);
-  margin-bottom: 10px;
+  width: calc(100%);
   padding: 8px 10px;
   border: 1px solid #ccc;
   border-radius: 4px;
@@ -1024,8 +1068,7 @@ h2 {
 /* 피치 이미지 파일 입력 스타일 */
 .pitch-form-container input[type="file"] {
   display: block;
-  width: calc(100% - 22px);
-  margin-bottom: 10px;
+  width: calc(100%);
   padding: 8px 10px;
   border: 1px solid #ccc;
   border-radius: 4px;
@@ -1035,13 +1078,13 @@ h2 {
 
 /* 피치 이미지 미리보기 스타일 (루트 이미지와 유사) */
 .pitch-form-container .image-preview {
-  margin-top: 10px;
   margin-bottom: 15px;
   padding: 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
   background-color: #fff;
   text-align: center;
+  margin-top: 0;
 }
 
 .pitch-form-container .image-preview p {
@@ -1118,7 +1161,7 @@ h2 {
 
 /* 루트 폼 액션 버튼 영역 */
 .route-form-actions {
-  margin-top: 30px;
+  margin-top: 10px;
   text-align: center;
 }
 
@@ -1133,10 +1176,10 @@ h2 {
   font-size: 1em;
   transition: background-color 0.3s ease;
 }
-.route-form-actions button.outline{
-    border: 1px solid #e1e1e1;
-    background: #fff;
-    color: #222;
+.route-form-actions button.outline {
+  border: 1px solid #e1e1e1;
+  background: #fff;
+  color: #222;
 }
 
 .route-form-actions button:hover {
@@ -1162,9 +1205,7 @@ h2 {
   display: flex;
   flex-direction: column;
 }
-.route-base-row + .route-base-row {
-  margin-top: 10px;
-}
+
 .route-base-row label {
   text-align: left;
   flex: 1;
@@ -1173,5 +1214,12 @@ h2 {
 }
 .route-base-row input {
   flex: 1;
+}
+.route-base-row textarea{
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  height: 100px;
+  box-sizing: border-box;
+  padding: 10px;
 }
 </style>

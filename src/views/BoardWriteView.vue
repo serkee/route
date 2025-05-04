@@ -15,7 +15,7 @@
     <div class="form-section">
       <div class="form-group">
         <label for="category">카테고리</label>
-        <select id="category" v-model="category" :disabled="!!editingPostId">
+        <select id="category" v-model="category" :disabled="!!editingPostId || route.query.category === 'route'">
           <option value="" disabled>카테고리를 선택하세요</option>
           <option value="free">자유게시판</option>
           <option value="route">루트</option>
@@ -63,6 +63,9 @@
         </div>
       </div>
 
+      <input type="hidden" v-model="linkedRouteUrl">
+
+
       <button v-if="!isSubmitting" @click="submitPost" class="submit-button">
         완료
       </button>
@@ -83,7 +86,7 @@ import {
 } from "firebase/storage";
 import { db, storage } from "@/firebase";
 
-import { getPostById, updatePost } from "@/services/boardService";
+import { getPostById, updatePost } from "@/services/boardService"; // boardService 경로 확인
 
 import imageCompression from "browser-image-compression";
 
@@ -102,23 +105,65 @@ const pageTitle = ref("게시글 작성");
 const imageInputRef = ref(null);
 
 const router = useRouter();
-const route = useRoute();
+const route = useRoute(); // 현재 루트 정보 (쿼리 파라미터 포함) 가져오기
+
+// ✅ 링크 정보 저장용 ref 추가
+const linkedRouteUrl = ref(null);
 
 onMounted(async () => {
-  const id = route.params.id || route.query.id;
+  // 수정 모드인지 확인 (params.id 사용)
+  const id = route.params.id; // 수정 모드는 params.id로 판단
+
+  // ✅ 쿼리 파라미터 확인 및 필드 초기값 설정
+  console.log("[BoardWriteView] Component mounted. Route query:", route.query);
+
+  // 카테고리 쿼리 파라미터 처리
+  if (route.query.category) {
+      // 쿼리 파라미터로 넘어온 카테고리 값으로 초기값 설정
+      // RouteDetailView에서 'route' 값을 넘기도록 수정했다면 여기서도 'route'를 기대합니다.
+      // 드롭다운 옵션의 value 값과 일치해야 합니다.
+      const queryCategory = route.query.category;
+      const validCategories = ['free', 'route', 'market']; // 드롭다운 옵션 value와 일치하는 유효한 카테고리 목록
+      if (validCategories.includes(queryCategory)) {
+          category.value = queryCategory;
+          console.log(`[BoardWriteView] 카테고리 초기값 설정됨: ${queryCategory}`);
+      } else {
+           console.warn(`[BoardWriteView] 유효하지 않은 카테고리 쿼리 파라미터: ${queryCategory}`);
+      }
+  }
+
+   // 링크 정보 쿼리 파라미터 처리
+   if (route.query.linkedRouteUrl) {
+       linkedRouteUrl.value = route.query.linkedRouteUrl;
+       console.log(`[BoardWriteView] 링크 정보 초기값 설정됨: ${linkedRouteUrl.value}`);
+       // 필요하다면 사용자에게 이 링크 정보를 보여줄 수도 있습니다.
+   }
+
+
+  // ✅ 수정 모드 로직 (기존 코드 유지)
   if (id) {
     editingPostId.value = id;
     pageTitle.value = "게시글 수정";
     try {
+      // 게시글 수정 시에는 쿼리 파라미터로 넘어온 카테고리/링크 정보를 무시하고
+      // 기존 게시글 데이터를 불러와서 필드를 채우는 것이 일반적입니다.
+      // 따라서 위 쿼리 파라미터 처리 로직은 수정 모드 (id가 있는 경우)에는
+      // 적용되지 않거나, 적용하더라도 기존 데이터를 덮어쓰도록 해야 합니다.
+      // 현재 코드에서는 id가 있을 때 아래 로직이 실행되어 쿼리 파라미터 값은 무시됩니다.
+
       const postToEdit = await getPostById(id);
       if (postToEdit) {
         originalPost.value = postToEdit;
         category.value = postToEdit.category;
         title.value = postToEdit.title;
         content.value = postToEdit.content;
+        // 수정 모드 시 기존 게시글에 링크 정보가 있다면 그것도 불러옵니다.
+        linkedRouteUrl.value = postToEdit.linkedRouteUrl || null; // 기존 링크 정보 로드
         if (postToEdit.imageUrl) {
           imageUrlPreview.value = postToEdit.imageUrl; // 기존 이미지 URL을 미리보기에 설정
         }
+         console.log(`[BoardWriteView] 수정 모드 - 기존 게시글 정보 로드됨 (ID: ${id}). 기존 링크 정보: ${linkedRouteUrl.value}`);
+
       } else {
         alert("수정할 게시글을 찾을 수 없습니다.");
         router.replace("/board");
@@ -128,6 +173,9 @@ onMounted(async () => {
       alert("게시글을 불러오는 중 오류가 발생했습니다.");
       router.replace("/board");
     }
+  } else {
+     // 작성 모드 - 쿼리 파라미터로 넘어온 카테고리/링크 정보로 초기값 설정 완료.
+     console.log("[BoardWriteView] 작성 모드.");
   }
 });
 
@@ -135,7 +183,7 @@ const goBack = () => {
   router.go(-1);
 };
 
-// 이미지 파일 선택 핸들러 (FileReader 비동기 처리 개선)
+// 이미지 파일 선택 핸들러 (기존 코드 유지)
 const handleImageUpload = async (event) => {
   const file = event.target.files[0];
   if (!file) {
@@ -202,39 +250,36 @@ const handleImageUpload = async (event) => {
   }
 };
 
+// 이미지 제거 핸들러 (기존 코드 유지)
 const removeImage = () => {
-  // 새로 선택된 이미지 제거 (X 버튼 클릭)
-  selectedImageFile.value = null; // 새 파일 객체 초기화
-  imageUrlPreview.value = null; // 미리보기 URL 초기화
+  selectedImageFile.value = null;
+  imageUrlPreview.value = null;
   if (imageInputRef.value) {
-    imageInputRef.value.value = ""; // 파일 입력 필드 값 초기화
+    imageInputRef.value.value = "";
   }
   console.log("새 이미지 선택 취소.");
 
-  // 수정 모드이고 원본 이미지가 있었던 경우, 미리보기를 원본 이미지로 다시 설정
   if (
     editingPostId.value &&
     originalPost.value &&
     originalPost.value.imageUrl
   ) {
-    imageUrlPreview.value = originalPost.value.imageUrl; // 기존 이미지 미리보기 복구
+    imageUrlPreview.value = originalPost.value.imageUrl;
     console.log("기존 이미지 미리보기 복구됨.");
   }
-  // 만약 원본 이미지도 없었다면 imageUrlPreview는 null 상태 유지
 };
 
+// 기존 이미지 제거 핸들러 (기존 코드 유지)
 const removeExistingImage = () => {
-  // 수정 모드에서 기존 이미지 제거 (X 버튼 클릭)
-  selectedImageFile.value = null; // 새로 선택된 이미지 없음 상태 유지
-  imageUrlPreview.value = null; // 미리보기 URL 초기화 (미리보기 영역 사라짐)
+  selectedImageFile.value = null;
+  imageUrlPreview.value = null;
   if (imageInputRef.value) {
-    imageInputRef.value.value = ""; // 파일 입력 필드 값 초기화
+    imageInputRef.value.value = "";
   }
   console.log("기존 이미지 제거 요청됨.");
-  // submitPost 함수에서 originalPost.imageUrl은 있지만 imageUrlPreview가 null인 상태를 감지하여
-  // Storage 이미지 삭제 및 Firestore 필드 업데이트를 처리합니다.
 };
 
+// ✅✅✅ 게시글 제출 함수 수정 (링크 정보 포함) ✅✅✅
 const submitPost = async () => {
   if (!category.value) {
     alert("카테고리를 선택하세요.");
@@ -262,11 +307,10 @@ const submitPost = async () => {
 
   let imageUrl = originalPost.value ? originalPost.value.imageUrl : null;
 
-  // 이미지 URL 결정 및 Storage 처리 로직
+  // 이미지 URL 결정 및 Storage 처리 로직 (기존 코드 유지)
   if (selectedImageFile.value) {
-    // 1. 새로 선택된 이미지가 있다면 업로드 (압축된 파일)
     console.log("새 이미지 감지됨. 업로드 시도.");
-    isUploadingImage.value = true; // 업로드 상태 표시 (optional, isSubmitting과 함께 사용)
+    isUploadingImage.value = true;
     try {
       const storagePath = `posts_images/${user.uid}/${Date.now()}_${
         selectedImageFile.value.name
@@ -276,12 +320,11 @@ const submitPost = async () => {
       imageUrl = await getDownloadURL(uploadResult.ref);
       console.log("새 이미지 업로드 성공, URL:", imageUrl);
 
-      // 수정 모드이고 기존 이미지가 있었는데 새 이미지로 교체하는 경우 기존 Storage 이미지 삭제
       if (
         editingPostId.value &&
         originalPost.value &&
         originalPost.value.imageUrl &&
-        originalPost.value.imageUrl !== imageUrl // URL이 다르면 교체된 것으로 판단
+        originalPost.value.imageUrl !== imageUrl
       ) {
         console.log(
           "기존 이미지 Storage에서 삭제 시도:",
@@ -307,7 +350,6 @@ const submitPost = async () => {
           console.log("기존 이미지 Storage 삭제 성공.");
         } catch (storageDeleteError) {
           console.error("기존 이미지 Storage 삭제 오류:", storageDeleteError);
-          // 이미지 삭제 실패는 게시글 업데이트를 막지 않음
         }
       }
     } catch (storageError) {
@@ -315,9 +357,9 @@ const submitPost = async () => {
       alert("이미지 업로드 중 오류가 발생했습니다.");
       isSubmitting.value = false;
       isUploadingImage.value = false;
-      return; // 업로드 실패 시 중단
+      return;
     } finally {
-      isUploadingImage.value = false; // 업로드 상태 종료
+      isUploadingImage.value = false;
     }
   } else if (
     editingPostId.value &&
@@ -325,7 +367,6 @@ const submitPost = async () => {
     originalPost.value.imageUrl &&
     imageUrlPreview.value === null
   ) {
-    // 2. 기존 이미지가 있었는데 제거 요청된 경우
     console.log("기존 이미지 삭제 요청 감지됨. Storage에서 삭제 시도.");
     try {
       const oldImageUrl = originalPost.value.imageUrl;
@@ -341,16 +382,15 @@ const submitPost = async () => {
       const imageStorageRef = storageRef(storage, imagePath);
 
       await deleteObject(imageStorageRef);
-      imageUrl = null; // Firestore에는 null로 저장
+      imageUrl = null;
       console.log("기존 이미지 Storage 삭제 성공 및 imageUrl null 설정.");
     } catch (storageError) {
       console.error("기존 이미지 Storage 삭제 오류:", storageError);
-      imageUrl = null; // 실패했더라도 Firestore에는 null로 저장 시도 (고아 파일 방지)
+      imageUrl = null;
       alert("기존 이미지 삭제 중 오류가 발생했습니다.");
     }
   } else {
-    // 3. 이미지 변경 없음 (새 이미지 선택 안 했고, 기존 이미지도 삭제 안 함)
-    imageUrl = originalPost.value ? originalPost.value.imageUrl : null; // 기존 URL 그대로 사용 또는 null 유지
+    imageUrl = originalPost.value ? originalPost.value.imageUrl : null;
     console.log("이미지 변경 없음. 기존 URL 사용:", imageUrl);
   }
 
@@ -360,7 +400,9 @@ const submitPost = async () => {
     category: category.value,
     title: title.value.trim(),
     content: content.value.trim(),
-    imageUrl: imageUrl, // 최종 결정된 이미지 URL (업로드, 기존, null 중 하나)
+    imageUrl: imageUrl, // 최종 결정된 이미지 URL
+    // ✅ 링크 정보 추가
+    linkedRouteUrl: linkedRouteUrl.value || null, // linkedRouteUrl 값이 있으면 포함, 없으면 null
     // 작성자 정보, 생성 시간 등은 작성 시에만 설정
     ...(editingPostId.value
       ? {} // 수정 모드에서는 추가하지 않음
@@ -381,10 +423,11 @@ const submitPost = async () => {
         postData
       );
       // boardService의 updatePost 함수 호출 (Storage 이미지 삭제 로직 포함)
+      // updatePost 함수도 linkedRouteUrl 필드를 처리할 수 있도록 수정 필요
       await updatePost(
         editingPostId.value,
         postData,
-        originalPost.value ? originalPost.value.imageUrl : null // updatePost에서 Storage 이미지 삭제 판단에 사용
+        originalPost.value ? originalPost.value.imageUrl : null
       );
       console.log(`게시글 ${editingPostId.value} 업데이트 완료.`);
       alert("게시글이 수정되었습니다.");
@@ -394,6 +437,7 @@ const submitPost = async () => {
       // 작성 모드: 새 게시글 추가
       console.log("새 게시글 작성 시도. 데이터:", postData);
       // boardService의 createPost 함수를 사용하도록 변경 가능
+      // linkedRouteUrl은 여기서 addDoc에 바로 포함됩니다.
       const newPostRef = await addDoc(collection(db, "posts"), postData); // addDoc 직접 호출
       console.log("새 게시글 작성 완료. ID:", newPostRef.id);
       alert("게시글이 작성되었습니다.");
