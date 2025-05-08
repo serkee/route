@@ -160,6 +160,7 @@ body,
 }
 #app>div{
 	overflow-y: auto;
+	overflow-x: hidden;
 }
 
 
@@ -321,15 +322,17 @@ body,
 	color: #b4b4b4;
 }
 
-a[href^="https://maps.google.com/maps"]{display:none !important}
+/* a[href^="https://maps.google.com/maps"]{display:none !important}
 .gm-style > div:last-child{display: none;}
 .gmnoprint a, .gmnoprint span, .gm-style-cc, .gm-control-active {
     display:none !important;
 }
 .gmnoprint {
 	display: none;
-}
+} */
+/* .gm-style img[alt="Google"]{display: none;} */
+.gm-style > div:last-child{display: none;}
+gmp-internal-camera-control{display: none;}
+
 .btn-feed{position: fixed; bottom: 55px; right: 10px; height: 45px; background: rgb(19, 177, 56); border: 0;  font-size: 18px; color: #fff; padding: 0 20px; border-radius: 25px; cursor: pointer; box-shadow: 3px 3px 3px rgba(0, 0, 0, .2);}
-
-
 .txt-red{color: #d13f4a;}

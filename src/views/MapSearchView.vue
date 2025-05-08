@@ -2,23 +2,27 @@
   <div class="container">
     <div class="header">
       <button class="back-button" @click="goBack">←</button>
-      <h1>검색 결과: "{{ currentSearchQuery }}"</h1>
+      <!-- ✅ 헤더 텍스트 업데이트 -->
+      <h1>{{ headerText }}</h1>
       <div class="header__right"></div>
     </div>
     <div v-if="loading" class="loading-message">
-      <p>검색 결과를 불러오는 중입니다...</p>
+      <p>{{ loadingMessage }}</p>
     </div>
 
     <div v-else-if="error" class="error-message">
-      <p>검색 결과를 불러오는데 오류가 발생했습니다: {{ error.message }}</p>
+      <p>데이터를 불러오는데 오류가 발생했습니다: {{ error.message }}</p>
     </div>
 
+    <!-- ✅ searchResults 대신 routes 사용 -->
     <div v-else class="search-results-list">
-      <div v-if="searchResults.length === 0" class="no-results">
-        <p>"{{ currentSearchQuery }}"에 대한 검색 결과가 없습니다.</p>
+      <div v-if="routes.length === 0" class="no-results">
+        <!-- ✅ 메시지 업데이트 -->
+        <p>{{ noResultsText }}</p>
       </div>
       <ul v-else>
-        <li v-for="route in searchResults" :key="route.id">
+        <!-- ✅ searchResults 대신 routes 사용 -->
+        <li v-for="route in routes" :key="route.id">
           <div class="result-info">
             <span class="result-name">{{ route.name || "이름 없음" }}</span>
             <span class="result-meta"
@@ -39,104 +43,134 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from "vue"; // watch 임포트하여 쿼리 변경 감지
-import { collection, getDocs, query } from "firebase/firestore";
+import { ref, onMounted, watch, computed } from "vue"; // computed 임포트 추가
+import { collection, getDocs, query, where, orderBy } from "firebase/firestore"; // where, orderBy 임포트 추가
 import { db } from "@/firebase";
 import { useRouter, useRoute } from "vue-router"; // useRoute 임포트
 
 const router = useRouter();
 const route = useRoute(); // 현재 루트 정보 가져오기
 
-const routes = ref([]); // 전체 루트 목록 (검색 및 필터링에 사용)
-const searchResults = ref([]); // 필터링된 검색 결과
+// ✅ searchResults 대신 routes만 사용
+const routes = ref([]); // Firestore에서 가져온 데이터 (검색 결과 또는 전체 목록)
 const loading = ref(true); // 데이터 로딩 상태
 const error = ref(null); // 오류 상태
 
-const currentSearchQuery = ref(""); // 현재 검색어 (화면 표시에 사용)
+// ✅ 화면 표시에 사용할 computed 속성
+const headerText = computed(() => {
+    if (route.query.show === 'all') {
+        return '모든 루트 목록';
+    } else if (route.query.q) {
+        return `검색 결과: "${route.query.q}"`;
+    } else {
+        return '루트 검색'; // 기본 상태
+    }
+});
 
-// Firestore에서 전체 루트 목록을 가져오는 함수
-const fetchRoutes = async () => {
-  console.log("[MapSearchView] 전체 루트 목록 가져오기 시작 (Firestore).");
-  loading.value = true; // 로딩 시작
-  error.value = null; // 오류 초기화
-  try {
-    const routesCollectionRef = collection(db, "routes"); // 'routes' 컬렉션 참조
-    const q = query(routesCollectionRef); // 필요한 경우 정렬, 필터링 추가
+const loadingMessage = computed(() => {
+    if (route.query.show === 'all') {
+        return '모든 루트 목록을 불러오는 중입니다...';
+    } else if (route.query.q) {
+        return `"${route.query.q}"에 대한 검색 결과를 불러오는 중입니다...`;
+    } else {
+        return '데이터를 불러오는 중입니다...'; // 기본 상태
+    }
+});
 
-    const routesList = [];
-    const querySnapshot = await getDocs(q); // 문서 목록 가져오기
+const noResultsText = computed(() => {
+     if (route.query.show === 'all') {
+        return '등록된 루트가 없습니다.';
+    } else if (route.query.q) {
+        return `"${route.query.q}"에 대한 검색 결과가 없습니다.`;
+    } else {
+         return '검색어를 입력하거나 모든 루트 보기를 선택하세요.';
+    }
+});
 
-    querySnapshot.forEach((doc) => {
-      const routeData = doc.data();
-      // 각 루트 문서에서 ID, 위치, 이름, 등반 개요, 등반 형태 등을 가져옵니다.
-      if (
-        routeData.location &&
-        routeData.location.lat !== undefined &&
-        routeData.location.lng !== undefined
-      ) {
-        const route = {
-          id: doc.id, // 루트 문서 ID
-          location: routeData.location, // 위치 ({lat, lng})
-          name: routeData.name || "이름 없음", // 루트 이름
-          climbingOverview: routeData.climbingOverview || "", // 검색 필터링에 사용
-          climbingStyle: routeData.climbingStyle || "", // 검색 결과 표시에 사용
-          // 필요한 다른 필드 추가
-        };
-        routesList.push(route);
-      } else {
-        console.warn(
-          `[MapSearchView] 루트 문서 ${doc.id}에 유효한 위치 정보가 없습니다.`,
-          routeData
-        );
-      }
-    });
-    routes.value = routesList; // 가져온 전체 루트 목록 업데이트
-    console.log(
-      `[MapSearchView] 전체 루트 ${routes.value.length}개 가져옴.`,
-      routes.value
-    );
 
-    // 루트 목록을 가져온 후 검색 실행
-    performSearch(currentSearchQuery.value);
-  } catch (err) {
-    console.error("[MapSearchView] 루트 목록 가져오기 오류:", err);
-    error.value = err; // 오류 상태 업데이트
-    loading.value = false; // 오류 발생 시 로딩 해제
-  }
+// ✅ Firestore에서 데이터를 가져오는 통합 함수
+const fetchData = async () => {
+    console.log("[MapSearchView] Fetching data based on route query:", route.query);
+    loading.value = true; // 로딩 시작
+    error.value = null; // 오류 초기화
+    routes.value = []; // 결과 목록 초기화
+
+    const searchQuery = route.query.q || '';
+    const showAll = route.query.show === 'all';
+    const sortBy = route.query.sort;
+
+    try {
+        const routesCollectionRef = collection(db, "routes");
+        let q = query(routesCollectionRef);
+
+        // ✅ 쿼리 파라미터에 따라 Firestore 쿼리 구성
+        if (showAll) {
+            // 'show=all'일 경우 모든 루트 가져오기
+            console.log("[MapSearchView] Query: Fetch all routes.");
+            // ✅ 정렬 조건 적용 (sort=name_asc 일 경우)
+            if (sortBy === 'name_asc') {
+                q = query(routesCollectionRef, orderBy('name', 'asc')); // 'name' 필드로 오름차순 정렬 (가나다 순)
+                 console.log("[MapSearchView] Query: Ordering by name ascending.");
+            }
+            // TODO: 다른 정렬 조건이 있다면 여기에 else if로 추가
+
+        } else if (searchQuery) {
+            // 'show=all'이 아니고 검색어(q)가 있을 경우 검색 실행
+            console.log(`[MapSearchView] Query: Searching for "${searchQuery}".`);
+            // Firestore에서 이름으로 'starts-with' 검색 (대소문자 구분 없음)
+            // 주의: Firestore는 강력한 텍스트 검색 기능을 제공하지 않습니다.
+            // 이 방법은 '검색어'로 시작하는 문서를 찾는데 적합하며, 부분 문자열 검색에는 한계가 있습니다.
+            // 전체 텍스트 검색이 필요하면 Algolia 등 외부 서비스를 고려해야 합니다.
+            const lowerCaseQuery = searchQuery.toLowerCase();
+            q = query(
+                routesCollectionRef,
+                orderBy('name', 'asc'), // 검색 결과도 이름 순으로 정렬 (선택 사항)
+                where('name', '>=', lowerCaseQuery),
+                where('name', '<=', lowerCaseQuery + '\uf8ff') // '\uf8ff'는 유니코드의 큰 값
+            );
+             // TODO: 다른 필드 (climbingOverview 등)로 검색을 확장하려면 복합 쿼리 또는 다른 전략 필요
+
+        } else {
+            // 'show=all'도 아니고 검색어도 없는 경우
+            console.log("[MapSearchView] Query: No search criteria. Returning empty.");
+            loading.value = false; // 로딩 해제
+            return; // 데이터 가져올 것이 없으므로 함수 종료
+        }
+
+        // 쿼리 실행 및 데이터 가져오기
+        const querySnapshot = await getDocs(q);
+        const fetchedRoutesList = [];
+         querySnapshot.forEach((doc) => {
+            const routeData = doc.data();
+            // 유효한 위치 정보가 있는 루트만 포함 (필요에 따라 조건 수정)
+            if (
+                routeData.location &&
+                routeData.location.lat !== undefined &&
+                routeData.location.lng !== undefined
+            ) {
+                 fetchedRoutesList.push({
+                    id: doc.id, // 루트 문서 ID
+                    ...routeData, // 모든 필드 포함
+                 });
+            } else {
+                 console.warn(
+                    `[MapSearchView] 루트 문서 ${doc.id}에 유효한 위치 정보가 없습니다.`,
+                    routeData
+                 );
+            }
+        });
+        routes.value = fetchedRoutesList; // 가져온 데이터로 routes 업데이트
+
+        console.log(`[MapSearchView] Fetched ${routes.value.length} routes based on query.`);
+
+    } catch (err) {
+        console.error("[MapSearchView] Error fetching data:", err);
+        error.value = err; // 오류 상태 업데이트
+    } finally {
+        loading.value = false; // 로딩 해제
+    }
 };
 
-// 검색 실행 함수 (MapSearchView용)
-const performSearch = (queryText) => {
-  console.log("[MapSearchView] Searching for:", queryText);
-  if (!queryText) {
-    searchResults.value = []; // 검색어 없으면 결과 비움
-    loading.value = false; // 로딩 해제
-    console.log(
-      "[MapSearchView] Search query is empty. Clearing search results."
-    );
-    return;
-  }
-
-  const lowerCaseQuery = queryText.toLowerCase().trim(); // 검색어 소문자 변환 및 공백 제거
-
-  // 전체 루트 목록 (routes.value)을 필터링하여 검색 결과 (searchResults.value) 생성
-  searchResults.value = routes.value.filter((route) => {
-    // 검색 기준: 루트 이름 또는 등반 개요에 검색어가 포함되는지 확인 (대소문자 구분 없이)
-    const nameMatch =
-      route.name && route.name.toLowerCase().includes(lowerCaseQuery);
-    const overviewMatch =
-      route.climbingOverview &&
-      route.climbingOverview.toLowerCase().includes(lowerCaseQuery);
-    // 필요한 경우 다른 필드 (예: 등반 형태, 위치 주소 등)도 검색 기준으로 추가할 수 있습니다.
-
-    return nameMatch || overviewMatch;
-  });
-
-  console.log(
-    `[MapSearchView] Found ${searchResults.value.length} search results.`
-  );
-  loading.value = false; // 검색 완료 후 로딩 해제
-};
 
 // 상세 페이지 이동 함수 (검색 결과의 '상세정보' 버튼 클릭 시 사용)
 const viewRouteDetail = (routeId) => {
@@ -156,27 +190,22 @@ const goBack = () => {
 // 컴포넌트 마운트 시 실행
 onMounted(() => {
   console.log("[MapSearchView] Component mounted.");
-  // URL에서 검색 쿼리 파라미터 가져오기
-  currentSearchQuery.value = route.query.q || "";
-  console.log(
-    "[MapSearchView] Search query from route:",
-    currentSearchQuery.value
-  );
-
-  // 컴포넌트 마운트 시 전체 루트 목록 가져오기 및 검색 실행
-  fetchRoutes();
+  // 컴포넌트 마운트 시 현재 쿼리 파라미터에 따라 데이터 가져오기 시작
+  fetchData();
 });
 
-// URL의 검색 쿼리 파라미터가 변경될 때마다 검색 다시 실행
+// URL의 쿼리 파라미터가 변경될 때마다 데이터 다시 가져오기
 watch(
-  () => route.query.q,
-  (newQuery) => {
-    console.log("[MapSearchView] Route query changed:", newQuery);
-    currentSearchQuery.value = newQuery || "";
-    loading.value = true; // 새로운 검색 시작 시 로딩 상태 설정
-    // 전체 루트 목록은 이미 fetchedRoutes에 있으므로 다시 가져올 필요 없이 바로 검색 실행
-    performSearch(currentSearchQuery.value);
-  }
+  () => route.query,
+  (newQuery, oldQuery) => {
+      // 쿼리 객체 자체가 변경되었을 때만 fetchData 실행
+      // 예: /mapSearch?q=abc 에서 /mapSearch?show=all 로 변경될 때
+      // 또는 /mapSearch?q=abc 에서 /mapSearch?q=def 로 변경될 때
+      console.log("[MapSearchView] Route query changed.", { oldQuery, newQuery });
+      // 깊은 비교는 필요 없을 수도 있지만, 쿼리 객체 내용 변경을 감지하기 위해 watch의 기본 동작에 의존
+      fetchData(); // 쿼리 변경 시 데이터 가져오기 함수 재실행
+  },
+  { deep: true } // 쿼리 객체 내부의 속성 변화도 감지
 );
 </script>
 
